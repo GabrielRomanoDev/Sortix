@@ -26,7 +26,7 @@ Não introduza dependências, frameworks ou padrões novos sem necessidade clara
 
 | Item | Valor |
 |---|---|
-| Bundle ID | `br.com.sortixamigosecreto.app` |
+| Bundle ID | `br.com.sortixamigosecreto.app.Sortix` |
 | Domínio | `sortixamigosecreto.com.br` |
 | Projeto Firebase | `sortix-amigo-secreto`, região `southamerica-east1` |
 | iOS mínimo | 17.0 |
