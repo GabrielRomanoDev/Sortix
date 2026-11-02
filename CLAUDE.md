@@ -1,217 +1,222 @@
 # CLAUDE.md
 
-Diretivas para trabalhar no repositório do Sortix. Leia este arquivo antes de qualquer tarefa e siga-o em todo código, teste, comentário e commit.
+Directives for working in the Sortix repository. Read this file before any task and follow it in all code, tests, comments and commits.
 
-## O projeto
+## The project
 
-Sortix é um app para iPhone que organiza amigo secreto sem cadastro. O organizador cria o grupo, cadastra participantes e restrições, faz o sorteio no próprio iPhone e envia um link pessoal para cada participante. O participante abre o link no app ou no site, revela quem tirou e cadastra sugestões de presente.
+Sortix is an iPhone app that organizes Secret Santa ("amigo secreto") without sign-up. The organizer creates the group, adds participants and restrictions, runs the draw on their own iPhone and sends a personal link to each participant. The participant opens the link in the app or on the website, reveals who they drew and adds gift suggestions.
 
-A especificação completa da v1 é `docs/SPEC.md`. Ela é a fonte da verdade para regras de negócio (RN-01 a RN-56), telas, fluxos, modelo de dados, contratos das Functions e testes. **Quando o código e a especificação divergirem, um dos dois está errado: corrija o código ou atualize a especificação no mesmo commit.** Antes de implementar uma tela ou um fluxo, leia a seção correspondente da especificação.
+The full v1 specification is `docs/SPEC.md`. It is the source of truth for business rules (BR-01 to BR-56), screens, flows, data model, Cloud Functions contracts and tests. **When the code and the specification disagree, one of them is wrong: fix the code or update the specification in the same commit.** Before implementing a screen or a flow, read the matching section of the specification.
 
-## Padrão de qualidade
+## Language
 
-Este projeto segue boas práticas de engenharia como regra, não como opção. Na dúvida entre o caminho rápido e o caminho correto, escolha o correto:
+- **Everything in the repository is written in English:** code, identifiers, comments, documentation (`docs/`, this file, README), commit messages and pull requests.
+- **The only exception is user-facing text.** pt-BR (and any future language) appears only in `Localizable.xcstrings`, `InfoPlist.xcstrings`, `web/locales/<language>.json` and the localized static pages of the website.
+- Localization keys, `accessibilityIdentifier` values and String Catalog comments are in English.
 
-- Código organizado, testável e com as decisões documentadas.
-- Responsabilidades separadas por camada, sem atalhos que quebrem a arquitetura.
-- Dependências injetadas, nunca globais.
-- Nenhum texto de interface no código, nenhum valor visual solto.
-- Acessibilidade, modo escuro e Dynamic Type fazem parte de toda tela, não são etapa posterior.
-- Toda lógica de domínio tem teste.
-- SwiftLint sem erros antes de considerar qualquer tarefa concluída.
+## Quality standard
 
-Não introduza dependências, frameworks ou padrões novos sem necessidade clara. Se uma tarefa exigir sair destas diretivas, pare e pergunte antes.
+This project treats engineering best practices as the rule, not as an option. When in doubt between the quick path and the correct path, choose the correct one:
 
-## Identidade e configuração
+- Organized, testable code with documented decisions.
+- Responsibilities separated by layer, with no shortcuts that break the architecture.
+- Dependencies injected, never global.
+- No user-facing text in code, no loose visual values.
+- Accessibility, dark mode and Dynamic Type are part of every screen, not a later step.
+- All domain logic is tested.
+- No SwiftLint errors before any task is considered done.
 
-| Item | Valor |
+Do not introduce new dependencies, frameworks or patterns without a clear need. If a task requires stepping outside these directives, stop and ask first.
+
+## Identity and configuration
+
+| Item | Value |
 |---|---|
 | Bundle ID | `br.com.sortixamigosecreto.app.Sortix` |
-| Domínio | `sortixamigosecreto.com.br` |
-| Projeto Firebase | `sortix-amigo-secreto`, região `southamerica-east1` |
-| iOS mínimo | 17.0 |
-| Dispositivos | Somente iPhone, somente retrato |
-| Idioma | pt-BR (idioma de desenvolvimento), preparado para outros |
-| Ferramentas | Xcode 26 ou mais recente, Swift 6 (modo de linguagem 6, concorrência estrita) |
-| Dependências (SPM) | Firebase iOS SDK (FirebaseAuth, FirebaseFirestore, FirebaseFunctions, FirebaseCrashlytics) e SwiftLintPlugins. Nada além disso sem discussão |
-| Backend | Firebase: Auth anônimo, Firestore, Cloud Functions 2ª geração em TypeScript, Hosting |
+| Domain | `sortixamigosecreto.com.br` |
+| Firebase project | `sortix-amigo-secreto`, region `southamerica-east1` |
+| Minimum iOS | 17.0 |
+| Devices | iPhone only, portrait only |
+| Language | pt-BR (development language), ready for others |
+| Tooling | Xcode 26 or later, Swift 6 (language mode 6, strict concurrency) |
+| Dependencies (SPM) | Firebase iOS SDK (FirebaseAuth, FirebaseFirestore, FirebaseFunctions, FirebaseCrashlytics) and SwiftLintPlugins. Nothing else without discussion |
+| Backend | Firebase: anonymous Auth, Firestore, 2nd gen Cloud Functions in TypeScript, Hosting |
 
-Se as configurações do projeto Xcode divergirem desta tabela (bundle ID, deployment target, família de dispositivos, versão do Swift, isolamento padrão), a tabela vale.
+If the Xcode project settings diverge from this table (bundle ID, deployment target, device family, Swift version, default isolation), the table wins.
 
-## Princípios de produto
+## Product principles
 
-Nunca viole estes princípios, mesmo que a tarefa pareça pedir:
+Never violate these principles, even if a task seems to ask for it:
 
-1. **Nenhum cadastro, nunca.** Autenticação anônima invisível. Não existe login. A recuperação do organizador usa um link.
-2. **O participante não precisa instalar nada.** Todo o fluxo do participante funciona no site.
-3. **O organizador participa sem ver quem tirou quem.** A interface nunca exibe o resultado de outra pessoa. O app nunca exibe, registra em log ou guarda o resultado do sorteio no aparelho.
-4. **Simples e rápido.** Nenhum campo além do necessário.
-5. **Nativo e acessível.** Listas agrupadas do iOS, modo escuro, Dynamic Type e VoiceOver.
-6. **Pronto para outros idiomas.** Nenhum texto de interface no código; datas, moeda e números formatados pelo locale.
+1. **No sign-up, ever.** Invisible anonymous authentication. There is no login. Organizer recovery uses a link.
+2. **Participants don't need to install anything.** The whole participant flow works on the website.
+3. **The organizer takes part without seeing who drew whom.** The interface never shows someone else's result. The app never displays, logs or stores the draw result on the device.
+4. **Simple and fast.** No field beyond what is needed.
+5. **Native and accessible.** iOS grouped lists, dark mode, Dynamic Type and VoiceOver.
+6. **Ready for other languages.** No user-facing text in code; dates, currency and numbers formatted by locale.
 
-Tokens, atribuições, nomes e sugestões nunca aparecem em logs, Crashlytics ou console (RN-55).
+Tokens, assignments, names and suggestions never appear in logs, Crashlytics or the console (BR-55).
 
-## Estrutura do repositório
+## Repository structure
 
-Monorepo com app, backend e site (detalhes na seção 7 da especificação):
+Monorepo with the app, backend and website (details in section 7 of the specification):
 
-- `ios/Sortix/` com `App/`, `Core/`, `Domain/`, `Models/`, `Services/`, `Features/`, `DesignSystem/`, `Extensions/` e `Resources/`.
-- `ios/SortixTests/` espelhando as pastas testadas, mais `Mocks/` e `Support/`.
-- `backend/` com `firestore.rules`, `firestore.indexes.json` e `functions/` (TypeScript).
-- `web/` com o site estático (HTML + JavaScript sem framework).
-- `shared/test-vectors/` com vetores JSON lidos pelos testes Swift e TypeScript.
-- `scripts/` com scripts de verificação.
+- `ios/Sortix/` with `App/`, `Core/`, `Domain/`, `Models/`, `Services/`, `Features/`, `DesignSystem/`, `Extensions/` and `Resources/`.
+- `ios/SortixTests/` mirroring the tested folders, plus `Mocks/` and `Support/`.
+- `backend/` with `firestore.rules`, `firestore.indexes.json` and `functions/` (TypeScript).
+- `web/` with the static website (HTML + JavaScript, no framework).
+- `shared/test-vectors/` with JSON vectors read by both the Swift and TypeScript tests.
+- `scripts/` with verification scripts.
 
-Regras de arquivo:
+File rules:
 
-- Cada cena fica em `Features/<Fluxo>/Scenes/<Cena>/` com `<Cena>View.swift`, `<Cena>ViewController.swift`, `<Cena>ViewModel.swift` e `<Cena>State.swift`. O enum `Navigation` fica aninhado no ViewModel.
-- Um tipo principal por arquivo, com o nome do arquivo igual ao do tipo. Extensões seguem `Tipo+Assunto.swift`.
-- `GoogleService-Info.plist` nunca entra no Git.
+- Each scene lives in `Features/<Flow>/Scenes/<Scene>/` with `<Scene>View.swift`, `<Scene>ViewController.swift`, `<Scene>ViewModel.swift` and `<Scene>State.swift`. The `Navigation` enum is nested in the ViewModel.
+- One main type per file, with the file named after the type. Extensions follow `Type+Topic.swift`.
+- `GoogleService-Info.plist` never goes into Git.
 
-## Arquitetura: UIKit em View Code com MVVM-C
+## Architecture: UIKit view code with MVVM-C
 
-Sem storyboards nem SwiftUI. Interface 100% em View Code com Auto Layout.
+No storyboards and no SwiftUI. The interface is 100% view code with Auto Layout.
 
-| Camada | Faz | Nunca faz |
+| Layer | Does | Never does |
 |---|---|---|
-| View (`UIView`) | Hierarquia de subviews, Auto Layout com tokens, `configure(with:)` para dados já prontos | Regra de negócio, chamada a serviço, texto literal |
-| ViewController | Cria a View, liga-se ao ViewModel, implementa `render(_ state:)`, repassa ações, apresenta alertas simples, posta notificações de acessibilidade | Regra de negócio, chamada a serviço, decidir navegação |
-| ViewModel (`@MainActor`) | Estado da tela, validação (pelo Domain), chamadas a serviços, formatação com `Locale` injetado, eventos de navegação | `import UIKit`, guardar referência a ViewController ou Coordinator |
-| Coordinator (`@MainActor`) | Cria cenas, injeta dependências, navega, apresenta controladores do sistema (compartilhar, contatos, Safari), gerencia filhos | Regra de negócio, estado de tela |
-| Service | Acesso ao Firebase atrás de protocolo, conversão DTO ↔ Model, conversão de erros | Conhecer UIKit ou telas |
-| Domain | Sorteio, validações, normalização, parsing de valor monetário | Importar UIKit ou Firebase, fazer I/O |
-| Models | Tipos de valor `Sendable` e `Equatable` | I/O ou dependência de framework de UI |
-| DesignSystem | Tokens e componentes visuais | Conhecer features ou serviços |
+| View (`UIView`) | Subview hierarchy, Auto Layout with tokens, `configure(with:)` for ready-to-display data | Business rules, service calls, literal text |
+| ViewController | Creates the View, binds to the ViewModel, implements `render(_ state:)`, forwards actions, presents simple alerts, posts accessibility notifications | Business rules, service calls, deciding navigation |
+| ViewModel (`@MainActor`) | Screen state, validation (through the Domain), service calls, formatting with an injected `Locale`, navigation events | `import UIKit`, holding a reference to a ViewController or Coordinator |
+| Coordinator (`@MainActor`) | Builds scenes, injects dependencies, navigates, presents system controllers (share, contacts, Safari), manages children | Business rules, screen state |
+| Service | Firebase access behind a protocol, DTO ↔ Model conversion, error conversion | Knowing UIKit or screens |
+| Domain | Draw, validation, normalization, currency input parsing | Importing UIKit or Firebase, doing I/O |
+| Models | `Sendable` and `Equatable` value types | I/O or UI framework dependencies |
+| DesignSystem | Tokens and visual components | Knowing features or services |
 
-Somente `Services` e `App` importam Firebase.
+Only `Services` and `App` import Firebase.
 
-### Comunicação
+### Communication
 
-Padrão único no app inteiro, com closures:
+One pattern for the whole app, with closures:
 
-- **ViewModel → View:** um único `State` por tela (`Equatable`), publicado por `onStateChange`. A ViewController tem um único `render(_:)`, que funciona em qualquer ordem de estados.
-- **ViewModel → Coordinator:** enum `Navigation` aninhado no ViewModel, publicado por `onNavigation`. O coordinator trata com `switch` exaustivo, sem `default`.
-- **Ações do usuário:** métodos do ViewModel com prefixo `didTap`, `didSelect`, `didChange` ou `didConfirm`.
-- **Controladores do sistema:** o caso de `Navigation` carrega uma closure de retorno (ex.: `case share(ShareContent, onCompleted: @MainActor () -> Void)`).
-- **Toda closure é atribuída com `[weak self]`.**
-- Não use delegates por tela nem Combine para essa comunicação.
+- **ViewModel → View:** a single `State` per screen (`Equatable`), published through `onStateChange`. The ViewController has a single `render(_:)` that works for states in any order.
+- **ViewModel → Coordinator:** a `Navigation` enum nested in the ViewModel, published through `onNavigation`. The coordinator handles it with an exhaustive `switch`, without `default`.
+- **User actions:** ViewModel methods prefixed with `didTap`, `didSelect`, `didChange` or `didConfirm`.
+- **System controllers:** the `Navigation` case carries a completion closure (e.g. `case share(ShareContent, onCompleted: @MainActor () -> Void)`).
+- **Every closure is assigned with `[weak self]`.**
+- Do not use per-screen delegates or Combine for this communication.
 
-### Coordinators e navegação
+### Coordinators and navigation
 
-- `AppCoordinator` (raiz, roteia Universal Links), `CreateGroupCoordinator` (modal com navegação própria) e `GroupCoordinator` (modos `.organizer`, `.participant`, `.recovery`).
-- Coordinators usam o protocolo `NavigationRouting`, nunca `UINavigationController` diretamente. Nos testes, `MockNavigationRouter`.
-- Todo coordinator filho é removido do pai quando termina (`onFinish` ou `onPop` da primeira tela).
-- Cenas são criadas em métodos privados `make<Cena>Scene()`, passando ao ViewModel **somente** os protocolos de que ele precisa.
+- `AppCoordinator` (root, routes Universal Links), `CreateGroupCoordinator` (modal with its own navigation) and `GroupCoordinator` (modes `.organizer`, `.participant`, `.recovery`).
+- Coordinators use the `NavigationRouting` protocol, never `UINavigationController` directly. Tests use `MockNavigationRouter`.
+- Every child coordinator is removed from its parent when it finishes (`onFinish` or the first screen's `onPop`).
+- Scenes are built in private `make<Scene>Scene()` methods, passing the ViewModel **only** the protocols it needs.
 
-### Injeção de dependências
+### Dependency injection
 
-- Não há singletons (`static let shared` é proibido). As instâncias do Firebase são obtidas em um único lugar, `AppDependencies.live()`, e entregues pelos inicializadores.
-- Todo serviço tem protocolo (`<Área>ServiceProtocol`) e mock correspondente em `SortixTests/Mocks/`. Os protocolos estão na seção 6.5 da especificação.
+- There are no singletons (`static let shared` is forbidden). Firebase instances are obtained in a single place, `AppDependencies.live()`, and handed over through initializers.
+- Every service has a protocol (`<Area>ServiceProtocol`) and a matching mock in `SortixTests/Mocks/`. The protocols are in section 6.5 of the specification.
 
-### Concorrência
+### Concurrency
 
-- Swift 6 com checagem estrita. **Default Actor Isolation: `nonisolated`.** Marque `@MainActor` explicitamente em ViewControllers, ViewModels, coordinators, `NavigationRouter` e `LocalSettingsStore`.
-- Models e tipos do Domain são structs e enums `Sendable`.
-- Serviços são `Sendable` com métodos `async`. Listeners do Firestore viram `AsyncThrowingStream`, e `onTermination` remove o listener.
-- `DrawService.draw(_:)` é `@concurrent`, para rodar fora da main thread.
-- Toda `Task` criada por um ViewModel fica guardada numa propriedade e é cancelada no `deinit` ou quando perde sentido.
-- Não use `@unchecked Sendable`, `nonisolated(unsafe)` ou `DispatchQueue` para contornar avisos de concorrência. Corrija o isolamento.
+- Swift 6 with strict checking. **Default Actor Isolation: `nonisolated`.** Mark ViewControllers, ViewModels, coordinators, `NavigationRouter` and `LocalSettingsStore` with `@MainActor` explicitly.
+- Models and Domain types are `Sendable` structs and enums.
+- Services are `Sendable` with `async` methods. Firestore listeners become `AsyncThrowingStream`, and `onTermination` removes the listener.
+- `DrawService.draw(_:)` is `@concurrent`, so it runs off the main thread.
+- Every `Task` a ViewModel creates is stored in a property and cancelled in `deinit` or when it stops being relevant.
+- Do not use `@unchecked Sendable`, `nonisolated(unsafe)` or `DispatchQueue` to silence concurrency diagnostics. Fix the isolation.
 
-### Erros
+### Errors
 
-- `ValidationError` (Domain), `DrawFailure` (Domain) e `ServiceError` (Services, via `FirebaseErrorMapper`).
-- O ViewModel guarda o erro tipado no estado. A ViewController converte em texto com `ErrorMessageMapper` (`switch` exaustivo que devolve `LocalizedStringResource`).
-- Testes verificam o tipo do erro, nunca o texto.
-- Erros inesperados vão para o Crashlytics como não fatais, com contexto só de códigos (`reason`, nome da Function, nome da tela).
+- `ValidationError` (Domain), `DrawFailure` (Domain) and `ServiceError` (Services, through `FirebaseErrorMapper`).
+- The ViewModel keeps the typed error in its state. The ViewController turns it into text with `ErrorMessageMapper` (an exhaustive `switch` returning `LocalizedStringResource`).
+- Tests check the error type, never the text.
+- Unexpected errors go to Crashlytics as non-fatal, with context made only of codes (`reason`, Function name, screen name).
 
 ## Interface
 
-- **Listas dinâmicas:** `UICollectionView` com `UICollectionViewCompositionalLayout.list(using:)`, aparência `.insetGrouped`, `UICollectionViewDiffableDataSource`, `CellRegistration` com `UICollectionViewListCell` e `UIListContentConfiguration`. Não use `UITableView`.
-- **Formulários fixos:** `FormScrollView` com componentes do Design System (`FormSectionView`, `TextFieldRow`, `TextViewRow`, `ToggleRow`, `DatePickerRow`, `CurrencyFieldRow`). Teclado com `view.keyboardLayoutGuide`.
-- **Estados vazio, carregando e erro:** `UIContentUnavailableConfiguration`.
-- **Botão principal:** `PrimaryButton`, preso à área segura inferior, com `showsActivityIndicator` durante operações.
-- **Títulos:** `prefersLargeTitles` só na lista de grupos.
-- **Links externos:** `SFSafariViewController`.
+- **Dynamic lists:** `UICollectionView` with `UICollectionViewCompositionalLayout.list(using:)`, `.insetGrouped` appearance, `UICollectionViewDiffableDataSource`, `CellRegistration` with `UICollectionViewListCell` and `UIListContentConfiguration`. Do not use `UITableView`.
+- **Fixed forms:** `FormScrollView` with Design System components (`FormSectionView`, `TextFieldRow`, `TextViewRow`, `ToggleRow`, `DatePickerRow`, `CurrencyFieldRow`). Keyboard handled with `view.keyboardLayoutGuide`.
+- **Empty, loading and error states:** `UIContentUnavailableConfiguration`.
+- **Primary button:** `PrimaryButton`, pinned to the bottom safe area, with `showsActivityIndicator` during operations.
+- **Titles:** `prefersLargeTitles` only on the group list.
+- **External links:** `SFSafariViewController`.
 
 ### Design System
 
-Valores visuais existem só em `DesignSystem/Tokens`: `ColorToken`, `TypographyToken`, `SpacingToken`, `RadiusToken`, `IconToken`. Fora do Design System, nada de `UIColor(red:...)`, `systemFont(ofSize:)`, `UIFont(name:)`, raios ou constantes de layout numéricas. Cores do Asset Catalog pelos símbolos gerados (`UIColor(resource: .accent)`), nunca por string.
+Visual values exist only in `DesignSystem/Tokens`: `ColorToken`, `TypographyToken`, `SpacingToken`, `RadiusToken`, `IconToken`. Outside the Design System, no `UIColor(red:...)`, `systemFont(ofSize:)`, `UIFont(name:)`, radii or numeric layout constants. Asset Catalog colors are accessed through generated symbols (`UIColor(resource: .accent)`), never by string.
 
-### Acessibilidade
+### Accessibility
 
-Siga a tabela da seção 6.10 da especificação. O essencial:
+Follow the table in section 6.10 of the specification. The essentials:
 
-- Todo botão só com ícone, todo campo e todo container agrupado tem `accessibilityLabel` vindo do String Catalog.
-- Labels curtos, com inicial maiúscula, sem ponto final e sem o tipo do elemento.
-- Containers agrupados usam chave de formato, nunca concatenação com `+`; botões internos viram `accessibilityCustomActions`.
-- Mudança de conteúdo na mesma tela posta `.layoutChanged`; confirmações passageiras postam `.announcement`.
-- Dynamic Type: fontes só pelos tokens, `adjustsFontForContentSizeCategory = true`, `numberOfLines = 0` quando o texto pode quebrar, nenhuma altura fixa em view com texto, área de toque mínima de 44×44 pt.
-- `accessibilityIdentifier` é constante em inglês e não é localizado.
+- Every icon-only button, every field and every grouped container has an `accessibilityLabel` from the String Catalog.
+- Labels are short, capitalized, without a trailing period and without the element type.
+- Grouped containers use a format key, never `+` concatenation; inner buttons become `accessibilityCustomActions`.
+- Content changes on the same screen post `.layoutChanged`; transient confirmations post `.announcement`.
+- Dynamic Type: fonts only through tokens, `adjustsFontForContentSizeCategory = true`, `numberOfLines = 0` when text can wrap, no fixed height on views with text, minimum touch target of 44×44 pt.
+- `accessibilityIdentifier` is an English constant and is not localized.
 
-## Localização
+## Localization
 
-- Nenhum texto de interface no código Swift, HTML ou JavaScript, inclusive alertas, erros e textos de acessibilidade.
-- Textos ficam em `Resources/Localizable.xcstrings` e são acessados **só** pelos símbolos gerados pelo String Catalog: `String(localized: .groupListEmptyTitle)`. `String(localized: "…")`, `NSLocalizedString` e literais em propriedades de interface são proibidos.
-- Chaves no formato `<área>.<componente>.<elemento>[.<variação>]`, em camelCase por segmento, com os sufixos padronizados da seção 8.2 da especificação. Toda chave tem comentário para tradutores.
-- Contagens usam `%lld` com variação de plural. Nunca concatene número e palavra.
-- Listas de nomes com `ListFormatStyle`; datas e moeda formatadas com `Locale` e `Calendar` injetados; nunca escreva "R$" no código. Dinheiro é `Money(amountMinor:currencyCode:)`.
-- O servidor nunca devolve texto ao usuário, só códigos de motivo (`reason`).
-- No site, todo texto entra no DOM por `textContent`; `innerHTML` e equivalentes são proibidos.
+- No user-facing text in Swift, HTML or JavaScript code, including alerts, errors and accessibility text.
+- Texts live in `Resources/Localizable.xcstrings` and are accessed **only** through the symbols generated by the String Catalog: `String(localized: .groupListEmptyTitle)`. `String(localized: "…")`, `NSLocalizedString` and literals assigned to UI properties are forbidden.
+- Keys follow `<area>.<component>.<element>[.<variant>]`, camelCase within each segment, with the standard suffixes in section 8.2 of the specification. Every key has an English comment for translators.
+- Counts use `%lld` with plural variation. Never concatenate a number and a word.
+- Lists of names use `ListFormatStyle`; dates and currency are formatted with injected `Locale` and `Calendar`; never write "R$" in code. Money is `Money(amountMinor:currencyCode:)`.
+- The server never returns user-facing text, only reason codes (`reason`).
+- On the website, all text enters the DOM through `textContent`; `innerHTML` and equivalents are forbidden.
 
-## Comentários
+## Comments
 
-- Código e comentários em inglês. Documentação do projeto (`docs/`, este arquivo) em português.
-- Comentários explicam o porquê, nunca o quê.
-- `///` em tipos e métodos usados por outras camadas e em todo comportamento não óbvio (pré-condições, complexidade, efeitos colaterais).
-- Proibido: código comentado, comentários decorativos (`---`, `***`, `===`) e o cabeçalho "Created by…" gerado pelo Xcode.
-- `// MARK: - Seção` é permitido.
-- TODO e FIXME só como `// TODO(<contexto>): <o que falta e por quê>`, com pelo menos 15 caracteres de explicação.
-- Comentários didáticos seguem exatamente `// LEARNING: <explicação> — remove after code review`. Eles aparecem como aviso e precisam ser removidos antes do merge para a branch principal e antes de qualquer build de TestFlight ou App Store (`scripts/check-learning-comments.sh`).
+- Comments explain why, never what.
+- `///` on types and methods used by other layers and on any non-obvious behavior (preconditions, complexity, side effects).
+- Forbidden: commented-out code, decorative comments (`---`, `***`, `===`) and the "Created by…" header Xcode generates.
+- `// MARK: - Section` is allowed.
+- TODO and FIXME only as `// TODO(<context>): <what is missing and why>`, with at least 15 characters of explanation.
+- Teaching comments use exactly `// LEARNING: <explanation> — remove after code review`. They show up as warnings and must be removed before merging to the main branch and before any TestFlight or App Store build (`scripts/check-learning-comments.sh`).
 
 ## SwiftLint
 
-- Instalado pelo pacote `SwiftLintPlugins` como build tool plugin nos targets `Sortix` e `SortixTests`. Configuração em `.swiftlint.yml` na raiz (conteúdo completo na seção 9.3 da especificação).
-- As regras customizadas reforçam a arquitetura: sem UIKit em ViewModels, Domain puro, Firebase só em Services e App, sem singletons, sem `print` (use `AppLogger`), só tokens de design, só localização tipada.
-- Código novo não pode gerar erros. Não desative regras para fazer passar. Um falso positivo isolado pode ser silenciado com `// swiftlint:disable:next <regra>`, sempre com o motivo no mesmo comentário.
-- Limites de referência: linha 120, função 40 linhas, tipo 300 linhas, arquivo 400 linhas, complexidade ciclomática 10. Sem `!` de force unwrap nem optionals implicitamente desembrulhados.
+- Installed through the `SwiftLintPlugins` package as a build tool plugin on the `Sortix` and `SortixTests` targets. Configuration in `.swiftlint.yml` at the root (full content in section 9.3 of the specification).
+- The custom rules enforce the architecture: no UIKit in ViewModels, pure Domain, Firebase only in Services and App, no singletons, no `print` (use `AppLogger`), design tokens only, typed localization only.
+- New code must not produce errors. Do not disable rules to make it pass. An isolated false positive may be silenced with `// swiftlint:disable:next <rule>`, always with the reason in the same comment.
+- Reference limits: line 120, function 40 lines, type 300 lines, file 400 lines, cyclomatic complexity 10. No force unwrapping and no implicitly unwrapped optionals.
 
-## Logs
+## Logging
 
-- Logs com `os.Logger` por meio de `AppLogger`, com categorias por área. Valores dinâmicos sempre com `privacy: .private`.
-- Nas Functions e no site, sem `console.log`; use o logger das Functions.
+- Logs use `os.Logger` through `AppLogger`, with one category per area. Dynamic values always use `privacy: .private`.
+- In the Functions and on the website, no `console.log`; use the Functions logger.
 
-## Testes
+## Tests
 
-- Framework: **Swift Testing** (`import Testing`, `@Test`, `#expect`, testes parametrizados). XCTest só para medição de desempenho.
-- Toda lógica do Domain tem testes unitários: `DrawEngine` (casos T1 a T16 da seção 10.8), `AssignmentValidator`, validadores, normalizadores, `CurrencyInputParser` e `DeepLinkParser`.
-- Toda cena tem teste de vazamento de memória (ViewController e ViewModel viram `nil` depois de liberados).
-- Testes de sorteio usam `SeededRandomNumberGenerator` com semente fixa; produção usa `SystemRandomNumberGenerator`.
-- Datas, calendário, relógio e locale são injetados para os testes usarem valores fixos.
-- Regras que existem no app e no servidor (normalização, contagem de caracteres por grafema, validação de sugestões) são conferidas pelos vetores em `shared/test-vectors/`. Os limites de campos são idênticos em `FieldLimits` (Swift) e `limits.ts` (TypeScript).
-- Functions são testadas com Vitest, com a lógica em `domain/` testável sem Firebase.
+- Framework: **Swift Testing** (`import Testing`, `@Test`, `#expect`, parameterized tests). XCTest only for performance measurement.
+- All Domain logic has unit tests: `DrawEngine` (cases T1 to T16 in section 10.8), `AssignmentValidator`, validators, normalizers, `CurrencyInputParser` and `DeepLinkParser`.
+- Every scene has a memory leak test (ViewController and ViewModel become `nil` after being released).
+- Draw tests use `SeededRandomNumberGenerator` with a fixed seed; production uses `SystemRandomNumberGenerator`.
+- Dates, calendar, clock and locale are injected so tests use fixed values.
+- Rules that exist on both the app and the server (normalization, grapheme-based character counting, suggestion validation) are checked by the vectors in `shared/test-vectors/`. Field limits are identical in `FieldLimits` (Swift) and `limits.ts` (TypeScript).
+- Functions are tested with Vitest, with the logic in `domain/` testable without Firebase.
 
-## Backend e site
+## Backend and website
 
-- Cloud Functions 2ª geração, TypeScript, todas `onCall`, região `southamerica-east1`. Um arquivo por Function em `handlers/`, lógica em `domain/`, acesso a dados em `data/`.
-- Toda entrada é validada por esquema antes de qualquer leitura; campos desconhecidos são rejeitados.
-- O servidor revalida o sorteio (RN-18 a RN-21) antes de gravar. O app nunca lê a coleção de atribuições.
-- Site estático em HTML e JavaScript sem framework, com textos em `web/locales/<idioma>.json`.
+- 2nd gen Cloud Functions, TypeScript, all `onCall`, region `southamerica-east1`. One file per Function in `handlers/`, logic in `domain/`, data access in `data/`.
+- Every input is validated against a schema before any read; unknown fields are rejected.
+- The server re-validates the draw (BR-18 to BR-21) before writing. The app never reads the assignments collection.
+- Static website in HTML and JavaScript without a framework, with texts in `web/locales/<language>.json`.
 
-## Definição de pronto
+## Definition of done
 
-Uma tela ou funcionalidade só está pronta quando:
+A screen or feature is done only when:
 
-- [ ] Todos os estados (carregando, vazio, erro, sucesso) estão implementados.
-- [ ] Nenhum texto está fora do String Catalog.
-- [ ] Modo escuro e maior tamanho de texto funcionam.
-- [ ] Os itens de acessibilidade da tela estão aplicados.
-- [ ] Os testes passam, incluindo o de vazamento de memória.
-- [ ] O SwiftLint não aponta erros.
-- [ ] Não há comentário `LEARNING` pendente antes do merge para a branch principal.
-- [ ] A especificação continua coerente com o código.
+- [ ] All states (loading, empty, error, success) are implemented.
+- [ ] No text lives outside the String Catalog.
+- [ ] Dark mode and the largest text sizes work.
+- [ ] The screen's accessibility items are applied.
+- [ ] Tests pass, including the memory leak test.
+- [ ] SwiftLint reports no errors.
+- [ ] No `LEARNING` comment is left before merging to the main branch.
+- [ ] The specification is still consistent with the code.
 
-## Fluxo de trabalho
+## Workflow
 
-- Desenvolvimento na branch `dev`; pull requests apontam para `dev`.
-- Commits pequenos, com mensagem clara descrevendo o que muda e por quê.
-- Fora do escopo da v1 (seção 19 da especificação): editar grupo ou refazer sorteio, notificações, iPad, outros idiomas, App Check, login de qualquer tipo. Não implemente esses itens sem pedido explícito.
+- Development happens on the `dev` branch; pull requests target `dev`.
+- Small commits with a clear message describing what changes and why.
+- Out of v1 scope (section 19 of the specification): editing a group or redoing the draw, notifications, iPad, other languages, App Check, any kind of login. Do not implement these without an explicit request.
