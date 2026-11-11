@@ -1566,6 +1566,7 @@ sortix/
 │   │   │   └── Components/
 │   │   │       ├── FormScrollView.swift
 │   │   │       ├── FormSectionView.swift
+│   │   │       ├── HairlineView.swift
 │   │   │       ├── TextFieldRow.swift
 │   │   │       ├── TextViewRow.swift
 │   │   │       ├── ToggleRow.swift
