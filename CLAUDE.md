@@ -140,7 +140,7 @@ One pattern for the whole app, with closures:
 
 ### Design System
 
-Visual values exist only in `DesignSystem/Tokens`: `ColorToken`, `TypographyToken`, `SpacingToken`, `RadiusToken`, `IconToken`. Outside the Design System, no `UIColor(red:...)`, `systemFont(ofSize:)`, `UIFont(name:)`, radii or numeric layout constants. Asset Catalog colors are accessed through generated symbols (`UIColor(resource: .accent)`), never by string.
+Visual values exist only in `DesignSystem/Tokens`: `ColorToken`, `TypographyToken`, `SpacingToken`, `RadiusToken`, `SizeToken`, `IconToken`. Outside the Design System, no `UIColor(red:...)`, `systemFont(ofSize:)`, `UIFont(name:)`, radii or numeric layout constants. Asset Catalog colors are accessed through generated symbols (`UIColor(resource: .accent)`), never by string.
 
 ### Accessibility
 

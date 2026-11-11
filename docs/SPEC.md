@@ -867,7 +867,7 @@ There is no loading: the screen does not access the network.
 **Components**
 
 - `UICollectionView` as an `insetGrouped` list:
-  - Highlight header: "Você tirou" (`TypographyToken.subheadline`) and the name (`TypographyToken.revealName`, built with `UIFontMetrics(forTextStyle: .largeTitle).scaledFont(for:)`, rounded bold, accent color). Both are grouped into one accessibility element.
+  - Highlight header: "Você tirou" (`TypographyToken.subheadline`) and the name (`TypographyToken.revealName`, 48 pt heavy scaled with the `largeTitle` metrics, in `ColorToken.onAccent` over an `accent` header with `RadiusToken.revealHeader` bottom corners). Both are grouped into one accessibility element.
   - "Sugestões de <nome>": one card per suggestion. Description in bold; below it, only the filled-in lines ("Tamanho: 40", "Cor: Azul", notes); last, a line with the link's domain and the `arrow.up.right.square` symbol, which opens the `SFSafariViewController`.
   - No suggestions: default message.
 - `UIRefreshControl` to reload the suggestions.
@@ -1376,13 +1376,16 @@ Visual values exist only in `DesignSystem/Tokens`. Screens and components use th
 
 | Token | Content |
 |---|---|
-| `ColorToken` | `accent` (Asset Catalog: light `#C8323F`, dark `#FF6B78`), `onAccent` (light white, dark black), `background` (`systemGroupedBackground`), `surface` (`secondarySystemGroupedBackground`), `textPrimary` (`label`), `textSecondary` (`secondaryLabel`), `warning` (`systemOrange`), `destructive` (`systemRed`), `success` (`systemGreen`) |
-| `TypographyToken` | Functions that return `UIFont.preferredFont(forTextStyle:)` with a weight; `revealName` with `UIFontMetrics(forTextStyle: .largeTitle).scaledFont(for:)` over a rounded bold font |
-| `SpacingToken` | `xxSmall` 4, `xSmall` 8, `small` 12, `medium` 16, `large` 24, `xLarge` 32 |
-| `RadiusToken` | `card` 10, `button` 12 |
+| `ColorToken` | Brand colors in the Asset Catalog, light / dark: `accent` (`#1E6B52` / `#4CC38A`), `onAccent` (`#FFFFFF` / `#000000`), `onAccentSecondary` (`#D6EBE2` / `#103826`), `accentSoft` (`#E3F0EA` / `#1B3329`), `textSecondary` (`#5F5F66` / `#A1A1A8`), `warning` (`#8A5A12` / `#F2C46D`), `warningSoft` (`#FDF1DC` / `#3A2A10`). System colors: `background` (`systemGroupedBackground`), `surface` (`secondarySystemGroupedBackground`), `separator` (`separator`), `inactive` (`systemGray4`), `textPrimary` (`label`), `textTertiary` (`tertiaryLabel`, decorative glyphs only), `destructive` (`systemRed`). `avatarPalette`: six background / foreground pairs for participant initials (green, amber, blue, pink, purple, coral), picked with `avatarColors(at:)` |
+| `TypographyToken` | `font(for:)` with the styles `largeTitle` (34 bold), `title` (28 bold), `cardTitle` (20 bold), `headline` (17 semibold), `body` (17), `callout` (16), `subheadline` (15), `footnote` (13), `sectionHeader` (13 semibold), `caption` (12 semibold) and `revealName` (48 heavy). Each one takes the size of a system text style at the default content size and is scaled with `UIFontMetrics` for that text style; `revealName` uses the `largeTitle` metrics |
+| `SpacingToken` | `xxSmall` 4, `xSmall` 8, `small` 12, `medium` 16, `large` 24, `xLarge` 32, `screenMargin` 20 |
+| `RadiusToken` | `tag` 8, `field` 12, `banner` 14, `card` 16, `button` 16, `hero` 22, `revealHeader` 28, always with `cornerCurve = .continuous` |
+| `SizeToken` | `minimumTouchTarget` 44, `primaryButtonMinHeight` 54, `rowMinHeight` 50, `avatarSmall` 32, `avatarMedium` 36, `iconTile` 48, `heroIcon` 72, `progressBarHeight` 4. Heights of views with text are minimums (`greaterThanOrEqualTo`) |
 | `IconToken` | Names of the SF Symbols used (technical constants, not user-facing text) |
 
-Contrast checked: `#C8323F` on white has a 5.27:1 ratio and `#FF6B78` on `#1C1C1E` has 6.18:1, both above the AA minimum (4.5:1). In dark mode, text on the accent color is black (7.63:1), because white on `#FF6B78` would be 2.75:1. Asset Catalog colors are accessed through the symbols Xcode generates (`UIColor(resource: .accent)`), without strings.
+The palette follows the screen mockups ("Amigo Secreto – Telas v1" design canvas): a deep green accent with soft tinted backgrounds, cards over the grouped background and SF Pro in the system text styles.
+
+Contrast checked (WCAG AA minimum 4.5:1). Light: `accent` on white 6.40:1 and on `#F2F2F7` 5.74:1; `accent` on `accentSoft` 5.46:1; `textSecondary` on white 6.33:1 and on `#F2F2F7` 5.68:1; `warning` on `warningSoft` 5.29:1; `onAccentSecondary` on `accent` 5.13:1. Dark: `accent` on `#1C1C1E` 7.68:1 and on `#2C2C2E` 6.29:1; `accent` on `accentSoft` 6.11:1; `textSecondary` on `#1C1C1E` 6.63:1; `warning` on `warningSoft` 8.49:1; `onAccentSecondary` on `accent` 5.87:1. In dark mode, text on the accent color is black (9.48:1), because white on `#4CC38A` would fall below the minimum. Every avatar pair is above 5.2:1 in both appearances. Asset Catalog colors are accessed through the symbols Xcode generates (`UIColor(resource: .accent)`), without strings.
 
 ### 6.10 Accessibility: practical rules
 
@@ -1558,6 +1561,7 @@ sortix/
 │   │   │   │   ├── TypographyToken.swift
 │   │   │   │   ├── SpacingToken.swift
 │   │   │   │   ├── RadiusToken.swift
+│   │   │   │   ├── SizeToken.swift
 │   │   │   │   └── IconToken.swift
 │   │   │   └── Components/
 │   │   │       ├── FormScrollView.swift
