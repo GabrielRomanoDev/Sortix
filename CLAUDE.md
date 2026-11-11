@@ -24,7 +24,6 @@ This project treats engineering best practices as the rule, not as an option. Wh
 - No user-facing text in code, no loose visual values.
 - Accessibility, dark mode and Dynamic Type are part of every screen, not a later step.
 - All domain logic is tested.
-- No SwiftLint errors before any task is considered done.
 
 Do not introduce new dependencies, frameworks or patterns without a clear need. If a task requires stepping outside these directives, stop and ask first.
 
@@ -39,7 +38,7 @@ Do not introduce new dependencies, frameworks or patterns without a clear need. 
 | Devices | iPhone only, portrait only |
 | Language | pt-BR (development language), ready for others |
 | Tooling | Xcode 26 or later, Swift 6 (language mode 6, strict concurrency) |
-| Dependencies (SPM) | Firebase iOS SDK (FirebaseAuth, FirebaseFirestore, FirebaseFunctions, FirebaseCrashlytics) and SwiftLintPlugins. Nothing else without discussion |
+| Dependencies (SPM) | Firebase iOS SDK (FirebaseAuth, FirebaseFirestore, FirebaseFunctions, FirebaseCrashlytics). Nothing else without discussion |
 | Backend | Firebase: anonymous Auth, Firestore, 2nd gen Cloud Functions in TypeScript, Hosting |
 
 If the Xcode project settings diverge from this table (bundle ID, deployment target, device family, Swift version, default isolation), the table wins.
@@ -171,14 +170,12 @@ Follow the table in section 6.10 of the specification. The essentials:
 - Forbidden: commented-out code, decorative comments (`---`, `***`, `===`) and the "Created by…" header Xcode generates.
 - `// MARK: - Section` is allowed.
 - TODO and FIXME only as `// TODO(<context>): <what is missing and why>`, with at least 15 characters of explanation.
-- Teaching comments use exactly `// LEARNING: <explanation> — remove after code review`. They show up as warnings and must be removed before merging to the main branch and before any TestFlight or App Store build (`scripts/check-learning-comments.sh`).
+- Teaching comments use exactly `// LEARNING: <explanation> — remove after code review`. They must be removed before merging to the main branch and before any TestFlight or App Store build.
 
-## SwiftLint
+## Code rules
 
-- Installed through the `SwiftLintPlugins` package as a build tool plugin on the `Sortix` and `SortixTests` targets. Configuration in `.swiftlint.yml` at the root (full content in section 9.3 of the specification).
-- The custom rules enforce the architecture: no UIKit in ViewModels, pure Domain, Firebase only in Services and App, no singletons, no `print` (use `AppLogger`), design tokens only, typed localization only.
-- New code must not produce errors. Do not disable rules to make it pass. An isolated false positive may be silenced with `// swiftlint:disable:next <rule>`, always with the reason in the same comment.
-- Reference limits: line 120, function 40 lines, type 300 lines, file 400 lines, cyclomatic complexity 10. No force unwrapping and no implicitly unwrapped optionals.
+- The architecture rules are checked in code review: no UIKit in ViewModels, pure Domain, Firebase only in Services and App, no singletons, no `print` (use `AppLogger`), design tokens only, typed localization only.
+- Reference limits (guidelines, not enforced by a tool): line 120, function 40 lines, type 300 lines, file 400 lines. No force unwrapping and no implicitly unwrapped optionals.
 
 ## Logging
 
@@ -211,7 +208,6 @@ A screen or feature is done only when:
 - [ ] Dark mode and the largest text sizes work.
 - [ ] The screen's accessibility items are applied.
 - [ ] Tests pass, including the memory leak test.
-- [ ] SwiftLint reports no errors.
 - [ ] No `LEARNING` comment is left before merging to the main branch.
 - [ ] The specification is still consistent with the code.
 

@@ -16,7 +16,7 @@
 6. [MVVM-C architecture](#6-mvvm-c-architecture)
 7. [Folder structure](#7-folder-structure)
 8. [Localization strategy](#8-localization-strategy)
-9. [Comment policy and SwiftLint](#9-comment-policy-and-swiftlint)
+9. [Comment policy](#9-comment-policy)
 10. [Draw algorithm](#10-draw-algorithm)
 11. [Firestore data model](#11-firestore-data-model)
 12. [Firestore security rules](#12-firestore-security-rules)
@@ -67,7 +67,7 @@ Sortix is an iPhone app that organizes Secret Santa ("amigo secreto") without si
 | Countries | Brazil only |
 | Language | Brazilian Portuguese (pt-BR), ready for others |
 | Tooling | Xcode 26 or later, Swift 6 (language mode 6, strict concurrency) |
-| Dependencies (SPM) | Firebase iOS SDK (FirebaseAuth, FirebaseFirestore, FirebaseFunctions, FirebaseCrashlytics) and SwiftLintPlugins |
+| Dependencies (SPM) | Firebase iOS SDK (FirebaseAuth, FirebaseFirestore, FirebaseFunctions, FirebaseCrashlytics) |
 | Backend | Firebase: anonymous Auth, Firestore, 2nd gen Cloud Functions in TypeScript, Hosting, Blaze plan with a budget alert |
 | Apple account | Apple Developer Program as an individual (your legal name appears as the seller) |
 
@@ -89,7 +89,7 @@ The App Store name, the name under the icon and the subtitle are user-facing tex
 - pt-BR localization with a String Catalog and typed symbols; website with one JSON file per language.
 - Dark mode, Dynamic Type and basic VoiceOver.
 - Crashlytics (crash reports only, no analytics).
-- SwiftLint from the first commit; unit tests for the draw algorithm and the validations.
+- Unit tests for the draw algorithm and the validations.
 
 ### 1.6 Not in v1
 
@@ -1057,7 +1057,7 @@ flowchart LR
 | Models | `Sendable` and `Equatable` value types | I/O or UI framework dependencies |
 | DesignSystem | Tokens (color, typography, spacing, radius, icons) and visual components | Knowing features or services |
 
-SwiftLint checks part of these prohibitions (section 9.3): no `import UIKit` in `*ViewModel.swift` files, no Firebase import outside `Services` and `App`, no loose visual values outside the `DesignSystem`.
+These prohibitions are checked in code review: no `import UIKit` in `*ViewModel.swift` files, no Firebase import outside `Services` and `App`, no loose visual values outside the `DesignSystem`.
 
 ### 6.2 Coordinators
 
@@ -1412,7 +1412,7 @@ All texts below come from the String Catalog.
 ### 6.11 Logging and Crashlytics
 
 - Logs with `os.Logger` through `AppLogger` (categories per area). Dynamic values always with `privacy: .private`.
-- `print` is forbidden (SwiftLint rule).
+- `print` is forbidden.
 - Crashlytics records crashes and unexpected non-fatal errors. The context may contain only codes (`reason`, Function name, screen name), never names, tokens, suggestions or assignments.
 - dSYMs are uploaded by the Crashlytics script phase in the Release build.
 
@@ -1426,14 +1426,11 @@ The repository is a monorepo with the app, the backend and the website.
 sortix/
 ├── README.md
 ├── .gitignore
-├── .swiftlint.yml
 ├── firebase.json
 ├── .firebaserc
 ├── docs/
 │   ├── SPEC.md                      ← this document
 │   └── images/                      ← screenshots for the README
-├── scripts/
-│   └── check-learning-comments.sh
 ├── shared/
 │   └── test-vectors/
 │       ├── normalization.json       ← read by the Swift and TypeScript tests
@@ -1673,7 +1670,7 @@ sortix/
 **Notes**
 
 - Each scene folder has `<Scene>View.swift`, `<Scene>ViewController.swift`, `<Scene>ViewModel.swift` and `<Scene>State.swift`. The `Navigation` enum is nested in the ViewModel.
-- One main type per file, with the file named after the type (SwiftLint `file_name` rule). Extensions follow `Type+Topic.swift`.
+- One main type per file, with the file named after the type. Extensions follow `Type+Topic.swift`.
 - `GoogleService-Info.plist` stays out of Git, with a `GoogleService-Info.example.plist` and instructions in the README. The Firebase API key is not a secret, but restricting it to the bundle ID in the Google Cloud Console and not versioning it prevents misuse of the project by anyone who clones the repository.
 - `firebase.json` lives at the root and points to `backend/` (rules, indexes, Functions) and to `web/` (Hosting). Its full content is in section 14.4.
 - Support files not shown in the summarized tree: `WebPage.swift` (website pages opened in the app, in `Core/DeepLinks`) and `ShareMessageBuilder.swift` (share texts, in the `GroupStatus` scene).
@@ -1727,7 +1724,7 @@ shareButton.accessibilityLabel = String(localized: .groupStatusButtonShareAccess
 footerLabel.text = String(localized: .participantsFooterCount(participantCount))
 ```
 
-SwiftLint forbids `String(localized: "…")`, `NSLocalizedString(` and literal text assigned to UI properties (section 9.3). So the only path is the generated symbol.
+`String(localized: "…")`, `NSLocalizedString(` and literal text assigned to UI properties are forbidden. The only path is the generated symbol.
 
 ### 8.4 Plurals
 
@@ -1824,14 +1821,12 @@ Messages with several names use `ListFormatStyle`: `names.formatted(.list(type: 
 | `formatMoney({ amountMinor, currencyCode })` | `Intl.NumberFormat(locale, { style: "currency", currency })`, with the currency's decimal places taken from `resolvedOptions().maximumFractionDigits` |
 | `formatList(names)` | `Intl.ListFormat(locale, { type: "conjunction" })` |
 
-- All text enters the DOM with `textContent`. `innerHTML` is forbidden (website lint rule, section 9.4).
+- All text enters the DOM with `textContent`. `innerHTML` is forbidden (website lint rule).
 - Static pages (privacy and support) have one version per language; in v1, only pt-BR.
 
 ---
 
-## 9. Comment policy and SwiftLint
-
-### 9.1 Comment policy
+## 9. Comment policy
 
 1. **Comments explain why, never what.** Clear code needs no comment.
 
@@ -1870,210 +1865,6 @@ Messages with several names use `ListFormatStyle`: `names.formatted(.list(type: 
     ```
 
 7. **Language:** comments in English, like all code and all documentation in the repository, this document included. Other languages appear only in user-facing texts (String Catalog and website locale files).
-
-### 9.2 Installing SwiftLint
-
-- SPM package `https://github.com/SimplyDanny/SwiftLintPlugins` (the official prebuilt plugins).
-- On the `Sortix` and `SortixTests` targets: Build Phases → Run Build Tool Plug-ins → `SwiftLintBuildToolPlugin`.
-- On the first build, Xcode asks you to trust the plugin.
-- `.swiftlint.yml` lives at the repository root and is found automatically.
-- Version pinned in `Package.resolved`, so anyone who clones uses the same one.
-
-### 9.3 Configuration (`.swiftlint.yml`)
-
-```yaml
-included:
-  - ios/Sortix
-  - ios/SortixTests
-
-excluded:
-  - ios/Sortix/Resources
-  - "**/DerivedData"
-  - "**/.build"
-
-reporter: xcode
-
-disabled_rules:
-  - todo # replaced by the custom rule todo_requires_context
-
-opt_in_rules:
-  - closure_spacing
-  - contains_over_first_not_nil
-  - convenience_type
-  - discouraged_optional_boolean
-  - empty_count
-  - empty_string
-  - explicit_init
-  - fatal_error_message
-  - file_name
-  - first_where
-  - force_unwrapping
-  - implicitly_unwrapped_optional
-  - last_where
-  - modifier_order
-  - overridden_super_call
-  - prohibited_super_call
-  - redundant_nil_coalescing
-  - sorted_imports
-  - toggle_bool
-  - unowned_variable_capture
-  - vertical_parameter_alignment_on_call
-  - weak_delegate
-  - yoda_condition
-
-line_length:
-  warning: 120
-  error: 160
-  ignores_urls: true
-  ignores_interpolated_strings: true
-
-file_length:
-  warning: 400
-  error: 600
-
-type_body_length:
-  warning: 300
-  error: 400
-
-function_body_length:
-  warning: 40
-  error: 60
-
-cyclomatic_complexity:
-  warning: 10
-  error: 15
-
-nesting:
-  type_level: 2
-
-identifier_name:
-  excluded:
-    - id
-    - x
-    - y
-
-file_name:
-  excluded:
-    - main.swift
-
-custom_rules:
-  learning_comment_format:
-    name: "LEARNING comment format"
-    regex: '(?m)//\s*LEARNING(?!: \S.* — remove after code review$)'
-    match_kinds: comment
-    message: "Use exactly: // LEARNING: <explanation> — remove after code review"
-    severity: error
-
-  learning_comment_pending:
-    name: "LEARNING comment pending"
-    regex: '//\s*LEARNING:'
-    match_kinds: comment
-    message: "Didactic comment pending removal after code review."
-    severity: warning
-
-  todo_requires_context:
-    name: "TODO/FIXME with context"
-    regex: '(?m)//\s*(TODO|FIXME)(?!\([^)]+\): \S.{14,})'
-    match_kinds: comment
-    message: "Use // TODO(<context>): <what is missing and why, at least 15 characters>."
-    severity: warning
-
-  no_commented_out_code:
-    name: "No commented-out code"
-    regex: '//\s*(let|var|func|guard|return|import|class|struct|enum|switch|try|await|self\.)\b'
-    match_kinds: comment
-    message: "Delete commented-out code; Git keeps the history."
-    severity: warning
-
-  no_decorative_comment:
-    name: "No decorative comments"
-    regex: '//\s*[-=*#~_/]{4,}'
-    match_kinds: comment
-    message: "Decorative comments are not allowed. Use // MARK: - Section when needed."
-    severity: warning
-
-  no_localized_string_literal:
-    name: "Typed localization only"
-    regex: '(String\(localized:\s*"|NSLocalizedString\(|LocalizedStringResource\(\s*")'
-    message: "Use the String Catalog generated symbols, e.g. String(localized: .groupListTitle)."
-    severity: error
-
-  no_ui_string_literal:
-    name: "No UI string literals"
-    regex: '(\.(text|title|placeholder|accessibilityLabel|accessibilityHint|accessibilityValue|message)\s*=\s*"[^"]+"|setTitle\(\s*"[^"]+")'
-    excluded: '.*Tests/.*'
-    message: "User-facing text must come from Localizable.xcstrings."
-    severity: error
-
-  no_uikit_in_view_model:
-    name: "ViewModels without UIKit"
-    included: '.*ViewModel\.swift$'
-    regex: 'import UIKit'
-    message: "ViewModels must not import UIKit."
-    severity: error
-
-  pure_domain:
-    name: "Pure domain layer"
-    included: '.*/Domain/.*\.swift$'
-    regex: 'import (UIKit|Firebase\w*)'
-    message: "Domain code must not depend on UIKit or Firebase."
-    severity: error
-
-  firebase_only_in_services:
-    name: "Firebase only in Services and App"
-    included: '.*/(Features|Domain|Models|DesignSystem|Core)/.*\.swift$'
-    regex: 'import Firebase\w*'
-    message: "Only Services and App may import Firebase."
-    severity: error
-
-  no_shared_singleton:
-    name: "No singletons"
-    regex: 'static\s+(let|var)\s+shared\b'
-    excluded: '.*Tests/.*'
-    message: "Inject dependencies through initializers instead of singletons."
-    severity: error
-
-  no_print:
-    name: "No print"
-    regex: '\bprint\('
-    message: "Use AppLogger (os.Logger) instead of print."
-    severity: warning
-
-  design_tokens_only:
-    name: "Design tokens only"
-    excluded: '.*/DesignSystem/.*'
-    regex: '(UIColor\((red|white|hue|displayP3Red):|\.systemFont\(ofSize:|UIFont\(name:|cornerRadius\s*=\s*[1-9])'
-    message: "Use ColorToken, TypographyToken and RadiusToken."
-    severity: error
-
-  spacing_tokens_only:
-    name: "Spacing tokens only"
-    excluded: '.*/DesignSystem/.*'
-    regex: '(constant|equalToConstant):\s*-?[1-9]'
-    message: "Use SpacingToken for layout constants."
-    severity: warning
-```
-
-Note: the regex rules are heuristics. An isolated false positive can be silenced with `// swiftlint:disable:next <rule>`, always with the reason in the same comment line.
-
-### 9.4 LEARNING comments before each release
-
-- Day to day, each `LEARNING` comment shows up as a warning in Xcode, so it is not forgotten.
-- The wrong format is a build error.
-- Before building for TestFlight or the App Store, run `scripts/check-learning-comments.sh`, which fails if any remain:
-
-```bash
-#!/usr/bin/env bash
-set -euo pipefail
-
-if grep -rn --include='*.swift' '// LEARNING:' ios/; then
-  echo "error: remove the LEARNING comments listed above before archiving." >&2
-  exit 1
-fi
-echo "No LEARNING comments found."
-```
-
-**Website and Functions.** The backend and website ESLint follow the same ideas: they forbid `console.log` (use the Functions logger), forbid `innerHTML`, `outerHTML`, `insertAdjacentHTML` and `document.write` (`no-restricted-properties` rule) and apply the same comment rules.
 
 ---
 
@@ -3291,7 +3082,6 @@ JSON files in `shared/test-vectors/`, read by the Swift tests (added as a *folde
 - [ ] Dark mode and largest text size checked.
 - [ ] The screen's accessibility items (sections 5 and 6.10) applied; Accessibility Inspector audit with no issues.
 - [ ] Memory leak test passing.
-- [ ] No SwiftLint errors.
 - [ ] No pending `LEARNING` comment before merging to the main branch.
 
 ---
@@ -3384,8 +3174,6 @@ Notes:
 
 - [ ] Version `1.0` and build number incremented on every submission.
 - [ ] Launch screen through the Info.plist `UILaunchScreen` key (no storyboard); references to `Main.storyboard` removed from Info.plist and from the target.
-- [ ] `scripts/check-learning-comments.sh` with nothing pending.
-- [ ] No SwiftLint errors.
 - [ ] Crashlytics script phase uploading the dSYMs.
 - [ ] Universal Links tested on the production domain, with the AASA containing the correct `TEAM_ID`.
 - [ ] Firestore rules, indexes and TTL policies deployed.
@@ -3419,7 +3207,7 @@ Notes:
 
 | Task | Days |
 |---|---|
-| View code Xcode project (no storyboard, `UILaunchScreen`), SPM with Firebase, SwiftLint, folder structure, `.gitignore`, initial README | 0.5 |
+| View code Xcode project (no storyboard, `UILaunchScreen`), SPM with Firebase, folder structure, `.gitignore`, initial README | 0.5 |
 | Design System tokens and base components (`FormSectionView`, `TextFieldRow`, `PrimaryButton`, `TextFieldListCell`) | 1 |
 | `Coordinator`, `NavigationRouter`, `AppCoordinator`, `AppDependencies` | 0.5 |
 | String Catalog with generated symbols and shared keys | 0.25 |
