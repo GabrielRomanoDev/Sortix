@@ -1357,7 +1357,7 @@ The real implementations live in `Services/<Area>/Firebase<Area>Service.swift`. 
 
 | Type | Where it originates | Example |
 |---|---|---|
-| `ValidationError` | Domain (`GroupDraftValidator`, `WishValidator`) | `.empty`, `.tooLong(limit:)`, `.duplicated`, `.outOfRange`, `.dateInPast`, `.invalidLink` |
+| `ValidationError` | Domain (`GroupDraftValidator`, `WishValidator`) | `.empty`, `.tooLong(limit:)`, `.duplicated`, `.outOfRange`, `.dateInPast`, `.invalidLink`, `.invalidOrganizer`, `.invalidRestriction` |
 | `DrawFailure` | Domain (`DrawEngine`) | `.receiverWithoutGivers(ParticipantID)`, `.onlyMutualPairs` |
 | `ServiceError` | Services (`FirebaseErrorMapper`) | `.network`, `.unauthenticated`, `.linkNotFound`, `.permissionDenied`, `.rejected(FunctionErrorReason, field:)`, `.unknown` |
 
@@ -3041,7 +3041,7 @@ func groupListSceneIsReleased() {
 
 ### 16.4 Shared test vectors
 
-JSON files in `shared/test-vectors/`, read by the Swift tests (added as a *folder reference* to the test target's resources) and by the Vitest tests (read with `fs`).
+JSON files in `shared/test-vectors/`, read by the Swift tests (`TestVectors` finds them from its own source path with `#filePath`; simulator tests run on the Mac, so nothing is copied into the test bundle) and by the Vitest tests (read with `fs`).
 
 ```json
 {

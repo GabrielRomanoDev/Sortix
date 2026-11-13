@@ -1,0 +1,14 @@
+{
+  "normalization": [
+    { "input": "  Ana  ", "expected": "ana" },
+    { "input": "Aná", "expected": "ana" },
+    { "input": "JOÃO   Pedro", "expected": "joao pedro" },
+    { "input": "Ｍａｒｉａ", "expected": "maria" },
+    { "input": "Mãe", "expected": "mae" }
+  ],
+  "graphemeCount": [
+    { "input": "Mãe", "expected": 3 },
+    { "input": "👩‍👩‍👧", "expected": 1 },
+    { "input": "Zoë 🎄", "expected": 5 }
+  ]
+}
