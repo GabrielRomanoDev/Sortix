@@ -1,6 +1,54 @@
 {
   "sourceLanguage": "pt-BR",
   "strings": {
+    "common.action.cancel": {
+      "comment": "Button that cancels the current flow or dialog.",
+      "extractionState": "manual",
+      "localizations": {
+        "pt-BR": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Cancelar"
+          }
+        }
+      }
+    },
+    "common.action.delete": {
+      "comment": "Destructive button that deletes an item after confirmation.",
+      "extractionState": "manual",
+      "localizations": {
+        "pt-BR": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Excluir"
+          }
+        }
+      }
+    },
+    "common.action.done": {
+      "comment": "Button that closes an informational dialog.",
+      "extractionState": "manual",
+      "localizations": {
+        "pt-BR": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "OK"
+          }
+        }
+      }
+    },
+    "common.action.next": {
+      "comment": "Button that moves to the next step of a flow.",
+      "extractionState": "manual",
+      "localizations": {
+        "pt-BR": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Próximo"
+          }
+        }
+      }
+    },
     "common.action.retry": {
       "comment": "Button that repeats an operation that failed.",
       "extractionState": "manual",
@@ -9,6 +57,42 @@
           "stringUnit": {
             "state": "translated",
             "value": "Tentar novamente"
+          }
+        }
+      }
+    },
+    "common.action.save": {
+      "comment": "Button that saves the changes of a form.",
+      "extractionState": "manual",
+      "localizations": {
+        "pt-BR": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Salvar"
+          }
+        }
+      }
+    },
+    "common.discardChanges.confirm": {
+      "comment": "Destructive button that closes a form and discards its unsaved changes.",
+      "extractionState": "manual",
+      "localizations": {
+        "pt-BR": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Descartar"
+          }
+        }
+      }
+    },
+    "common.discardChanges.title": {
+      "comment": "Title of the confirmation shown when closing a form with unsaved changes.",
+      "extractionState": "manual",
+      "localizations": {
+        "pt-BR": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Descartar alterações?"
           }
         }
       }
@@ -129,6 +213,78 @@
           "stringUnit": {
             "state": "translated",
             "value": "Seus grupos"
+          }
+        }
+      }
+    },
+    "recovery.alreadyHere": {
+      "comment": "Message shown when the recovery link is opened on the iPhone that already manages the group.",
+      "extractionState": "manual",
+      "localizations": {
+        "pt-BR": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Este grupo já é administrado neste iPhone."
+          }
+        }
+      }
+    },
+    "recovery.confirm.action": {
+      "comment": "Button that confirms taking over a group with the recovery link.",
+      "extractionState": "manual",
+      "localizations": {
+        "pt-BR": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Recuperar"
+          }
+        }
+      }
+    },
+    "recovery.confirm.message": {
+      "comment": "Message of the recovery confirmation. Argument: the group name.",
+      "extractionState": "manual",
+      "localizations": {
+        "pt-BR": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "O grupo “%@” passará a ser administrado neste iPhone. O outro aparelho perderá o acesso."
+          }
+        }
+      }
+    },
+    "recovery.confirm.title": {
+      "comment": "Title of the confirmation before taking over a group with the recovery link.",
+      "extractionState": "manual",
+      "localizations": {
+        "pt-BR": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Recuperar grupo?"
+          }
+        }
+      }
+    },
+    "validation.tooLong": {
+      "comment": "Error below a text field whose text is too long. Argument: the maximum number of characters.",
+      "extractionState": "manual",
+      "localizations": {
+        "pt-BR": {
+          "variations": {
+            "plural": {
+              "one": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "Use no máximo %lld caractere."
+                }
+              },
+              "other": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "Use no máximo %lld caracteres."
+                }
+              }
+            }
           }
         }
       }

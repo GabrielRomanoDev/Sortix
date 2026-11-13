@@ -1,0 +1,30 @@
+{
+  "sourceLanguage" : "pt-BR",
+  "strings" : {
+    "CFBundleDisplayName" : {
+      "comment" : "App name shown under the icon on the Home Screen.",
+      "extractionState" : "manual",
+      "localizations" : {
+        "pt-BR" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Sortix"
+          }
+        }
+      }
+    },
+    "CFBundleName" : {
+      "comment" : "Bundle name",
+      "extractionState" : "extracted_with_value",
+      "localizations" : {
+        "pt-BR" : {
+          "stringUnit" : {
+            "state" : "new",
+            "value" : "Sortix"
+          }
+        }
+      }
+    }
+  },
+  "version" : "1.0"
+}
