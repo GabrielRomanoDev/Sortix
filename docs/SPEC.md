@@ -1363,7 +1363,7 @@ The real implementations live in `Services/<Area>/Firebase<Area>Service.swift`. 
 
 - The `FirebaseErrorMapper` converts `FunctionsErrorCode`, `FirestoreErrorCode` and `AuthErrorCode` into `ServiceError`. The Functions' `details.reason` field becomes the `FunctionErrorReason` enum, identical to the server's (section 13.2).
 - The ViewModel keeps the typed error in its state. Tests check the type, never the text.
-- The ViewController turns the error into text with the `ErrorMessageMapper`, which does an exhaustive `switch` and returns a `LocalizedStringResource`. A new error without a message does not compile.
+- The ViewController turns the error into text with the `ErrorMessageMapper`, which does an exhaustive `switch` and returns a `LocalizedStringResource` (`message(for:)`, plus `title(for:)` for the errors that have a title: no connection and invalid link). Until a screen needs a specific message, Function reasons fall back to the generic message. A new error without a message does not compile.
 - Unexpected errors (`.unknown`, `INVALID_ASSIGNMENT`) also go to Crashlytics as non-fatal, without names, tokens or suggestions in the context.
 
 ### 6.8 Memory and lifecycle

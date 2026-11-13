@@ -217,4 +217,5 @@ A screen or feature is done only when:
 
 - Development happens on the `dev` branch; pull requests target `dev`.
 - Small commits with a clear message describing what changes and why.
+- After implementing each stage, report in the conversation what was added and what to test (automated tests to run and manual checks in the simulator) to confirm it works.
 - Out of v1 scope (section 19 of the specification): editing a group or redoing the draw, notifications, iPad, other languages, App Check, any kind of login. Do not implement these without an explicit request.

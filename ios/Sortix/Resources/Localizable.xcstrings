@@ -1,6 +1,78 @@
 {
   "sourceLanguage": "pt-BR",
   "strings": {
+    "common.action.retry": {
+      "comment": "Button that repeats an operation that failed.",
+      "extractionState": "manual",
+      "localizations": {
+        "pt-BR": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Tentar novamente"
+          }
+        }
+      }
+    },
+    "common.error.generic.message": {
+      "comment": "Message shown when an operation fails for an unexpected reason.",
+      "extractionState": "manual",
+      "localizations": {
+        "pt-BR": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Algo deu errado. Tente de novo em instantes."
+          }
+        }
+      }
+    },
+    "common.error.network.message": {
+      "comment": "Message shown when an operation fails because there is no internet connection.",
+      "extractionState": "manual",
+      "localizations": {
+        "pt-BR": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Verifique sua internet e tente de novo."
+          }
+        }
+      }
+    },
+    "common.error.network.title": {
+      "comment": "Title shown when an operation fails because there is no internet connection.",
+      "extractionState": "manual",
+      "localizations": {
+        "pt-BR": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Sem conexão"
+          }
+        }
+      }
+    },
+    "common.invalidLink.message": {
+      "comment": "Message shown when a personal or recovery link no longer works, explaining the likely causes.",
+      "extractionState": "manual",
+      "localizations": {
+        "pt-BR": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Este link não é mais válido. Ele pode ter sido digitado errado ou o grupo foi excluído pelo organizador."
+          }
+        }
+      }
+    },
+    "common.invalidLink.title": {
+      "comment": "Title shown when a personal or recovery link no longer works.",
+      "extractionState": "manual",
+      "localizations": {
+        "pt-BR": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Link inválido"
+          }
+        }
+      }
+    },
     "groupList.createButton.accessibilityLabel": {
       "comment": "VoiceOver label of the + button in the group list navigation bar.",
       "extractionState": "manual",

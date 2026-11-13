@@ -1,5 +1,6 @@
 import Testing
 @testable import Sortix
+import UIKit
 
 @MainActor
 struct GroupListSceneTests {
