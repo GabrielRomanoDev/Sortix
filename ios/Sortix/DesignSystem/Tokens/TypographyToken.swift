@@ -1,65 +1,33 @@
 import UIKit
 
-/// Text styles of the app, all scaled with Dynamic Type.
-///
-/// Each style starts from the size of a system text style at the default content size and is scaled
-/// with `UIFontMetrics` for that same text style, so labels with
-/// `adjustsFontForContentSizeCategory = true` follow the user's text size.
+/// Text styles of the app. Every font scales with Dynamic Type through `UIFontMetrics`, so labels
+/// with `adjustsFontForContentSizeCategory = true` follow the user's text size.
 @MainActor
 enum TypographyToken {
-    enum Style: CaseIterable {
-        /// 34 pt bold. Title of the group list.
-        case largeTitle
-        /// 28 pt bold. Titles of the other screens and of empty and success states.
-        case title
-        /// 20 pt bold. Title inside a summary card.
-        case cardTitle
-        /// 17 pt semibold. Row titles, emphasized values and button titles.
-        case headline
-        /// 17 pt regular. Default text, fields and row labels.
-        case body
-        /// 16 pt regular. Compact row labels and secondary buttons.
-        case callout
-        /// 15 pt regular. Subtitles, banners and supporting paragraphs.
-        case subheadline
-        /// 13 pt regular. Row subtitles, footers and counters.
-        case footnote
-        /// 13 pt semibold. Section headers, displayed in uppercase by the caller.
-        case sectionHeader
-        /// 12 pt semibold. Status badges.
-        case caption
-        /// 48 pt heavy. Name of the drawn person on the reveal screen.
-        case revealName
-    }
+    /// 34 pt bold. Title of the group list.
+    static var largeTitle: UIFont { scaled(34, .bold, .largeTitle) }
+    /// 28 pt bold. Titles of the other screens and of empty and success states.
+    static var title: UIFont { scaled(28, .bold, .title1) }
+    /// 20 pt bold. Title inside a summary card.
+    static var cardTitle: UIFont { scaled(20, .bold, .title3) }
+    /// 17 pt semibold. Row titles, emphasized values and button titles.
+    static var headline: UIFont { scaled(17, .semibold, .headline) }
+    /// 17 pt regular. Default text, fields and row labels.
+    static var body: UIFont { scaled(17, .regular, .body) }
+    /// 16 pt regular. Compact row labels and secondary buttons.
+    static var callout: UIFont { scaled(16, .regular, .callout) }
+    /// 15 pt regular. Subtitles, banners and supporting paragraphs.
+    static var subheadline: UIFont { scaled(15, .regular, .subheadline) }
+    /// 13 pt regular. Row subtitles, footers and counters.
+    static var footnote: UIFont { scaled(13, .regular, .footnote) }
+    /// 13 pt semibold. Section headers, displayed in uppercase by the caller.
+    static var sectionHeader: UIFont { scaled(13, .semibold, .footnote) }
+    /// 12 pt semibold. Status badges.
+    static var caption: UIFont { scaled(12, .semibold, .caption1) }
+    /// 48 pt heavy. Name of the drawn person on the reveal screen.
+    static var revealName: UIFont { scaled(48, .heavy, .largeTitle) }
 
-    private static let revealNameSize: CGFloat = 48
-
-    static func font(for style: Style) -> UIFont {
-        switch style {
-        case .largeTitle: scaledFont(.largeTitle, weight: .bold)
-        case .title: scaledFont(.title1, weight: .bold)
-        case .cardTitle: scaledFont(.title3, weight: .bold)
-        case .headline: scaledFont(.headline, weight: .semibold)
-        case .body: scaledFont(.body, weight: .regular)
-        case .callout: scaledFont(.callout, weight: .regular)
-        case .subheadline: scaledFont(.subheadline, weight: .regular)
-        case .footnote: scaledFont(.footnote, weight: .regular)
-        case .sectionHeader: scaledFont(.footnote, weight: .semibold)
-        case .caption: scaledFont(.caption1, weight: .semibold)
-        case .revealName: scaledFont(.largeTitle, weight: .heavy, size: revealNameSize)
-        }
-    }
-
-    private static func scaledFont(
-        _ textStyle: UIFont.TextStyle,
-        weight: UIFont.Weight,
-        size: CGFloat? = nil
-    ) -> UIFont {
-        let defaultTraits = UITraitCollection(preferredContentSizeCategory: .large)
-        let defaultSize = UIFontDescriptor
-            .preferredFontDescriptor(withTextStyle: textStyle, compatibleWith: defaultTraits)
-            .pointSize
-        let font = UIFont.systemFont(ofSize: size ?? defaultSize, weight: weight)
-        return UIFontMetrics(forTextStyle: textStyle).scaledFont(for: font)
+    private static func scaled(_ size: CGFloat, _ weight: UIFont.Weight, _ style: UIFont.TextStyle) -> UIFont {
+        UIFontMetrics(forTextStyle: style).scaledFont(for: .systemFont(ofSize: size, weight: weight))
     }
 }

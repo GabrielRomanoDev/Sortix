@@ -24,6 +24,8 @@ This project treats engineering best practices as the rule, not as an option. Wh
 - No user-facing text in code, no loose visual values.
 - Accessibility, dark mode and Dynamic Type are part of every screen, not a later step.
 - All domain logic is tested.
+- The simplest code that meets these rules. Avoid overly abstract layers: no extra layers, generic helpers or edge-case handling the app does not need yet. The code should read well to a developer moving from junior to mid-level.
+- Simple does not mean fewer functions. Keep initializers short: they call small, named functions with one responsibility each, such as `setUpLayout()`, `setUpTextField()` and `setTexts(...)`. Never inline the body of those functions into `init`. Text is always set by its own function (`setTexts(...)` or `configure(...)`).
 
 Do not introduce new dependencies, frameworks or patterns without a clear need. If a task requires stepping outside these directives, stop and ask first.
 

@@ -1120,12 +1120,12 @@ protocol NavigationRouting: AnyObject {
 }
 ```
 
-`NavigationRouter` implements the protocol on top of a `UINavigationController` and is its delegate. This makes it possible to know when a screen left the stack through the Back button or the swipe gesture, and to call the matching `onPop`. The coordinator uses the `onPop` of the flow's first screen to tell its parent that it finished.
+`NavigationRouter` implements the protocol on top of a `UINavigationController` and is its delegate. Being the delegate is what lets it know when a screen left the stack through the Back button or the swipe gesture, and call the matching `onPop`. The coordinator uses the `onPop` of the flow's first screen to tell its parent that it finished.
 
 ```swift
 @MainActor
 final class NavigationRouter: NSObject, NavigationRouting {
-    private let navigationController: UINavigationController
+    let navigationController: UINavigationController
     private var popHandlers: [ObjectIdentifier: () -> Void] = [:]
 
     var rootViewController: UIViewController { navigationController }
@@ -1137,9 +1137,7 @@ final class NavigationRouter: NSObject, NavigationRouting {
     }
 
     func push(_ viewController: UIViewController, animated: Bool, onPop: (() -> Void)?) {
-        if let onPop {
-            popHandlers[ObjectIdentifier(viewController)] = onPop
-        }
+        popHandlers[ObjectIdentifier(viewController)] = onPop
         navigationController.pushViewController(viewController, animated: animated)
     }
 
@@ -1152,11 +1150,12 @@ extension NavigationRouter: UINavigationControllerDelegate {
         didShow viewController: UIViewController,
         animated: Bool
     ) {
-        guard
-            let fromViewController = navigationController.transitionCoordinator?.viewController(forKey: .from),
-            !navigationController.viewControllers.contains(fromViewController)
-        else { return }
-        popHandlers.removeValue(forKey: ObjectIdentifier(fromViewController))?()
+        // Every screen with a handler that is no longer in the stack was popped.
+        let screensInStack = Set(navigationController.viewControllers.map(ObjectIdentifier.init))
+        for (screen, onPop) in popHandlers where !screensInStack.contains(screen) {
+            popHandlers[screen] = nil
+            onPop()
+        }
     }
 }
 ```
@@ -1167,7 +1166,7 @@ The creation modal uses a second `NavigationRouter`, with its own `UINavigationC
 
 A single pattern for the whole app, with closures:
 
-- **ViewModel → View:** a single `State` per screen (enum or struct, `Equatable`), published through `onStateChange`. The ViewController has a single `render(_:)`, which must work for states in any order.
+- **ViewModel → View:** a single `State` per screen (enum or struct, `Equatable`), published through `onStateChange`. The ViewModel changes the state only through a private `updateState(_:)`, which stores the new state and calls `onStateChange` in plain sight. The ViewController has a single `render(_:)`, which must work for states in any order.
 - **ViewModel → Coordinator:** a `Navigation` enum nested in the ViewModel, published through `onNavigation`. The coordinator handles the enum in an exhaustive `switch`; a new unhandled event does not compile.
 - **User actions:** ViewModel methods prefixed with `didTap`, `didSelect`, `didChange` and `didConfirm`.
 - **Every closure is assigned with `[weak self]`.** The ViewModel never holds a reference to the ViewController or the coordinator.
@@ -1185,9 +1184,7 @@ final class GroupListViewModel {
     var onStateChange: ((GroupListState) -> Void)?
     var onNavigation: ((Navigation) -> Void)?
 
-    private(set) var state: GroupListState = .loading {
-        didSet { onStateChange?(state) }
-    }
+    private(set) var state: GroupListState = .loading
 
     private let membershipService: any MembershipServiceProtocol
     private var observationTask: Task<Void, Never>?
@@ -1205,10 +1202,10 @@ final class GroupListViewModel {
         observationTask = Task { [weak self] in
             do {
                 for try await items in memberships {
-                    self?.state = GroupListState(memberships: items)
+                    self?.updateState(GroupListState(memberships: items))
                 }
             } catch {
-                self?.state = .failed(ServiceError(error))
+                self?.updateState(.failed(ServiceError(error)))
             }
         }
     }
@@ -1222,6 +1219,11 @@ final class GroupListViewModel {
         case .organizer: onNavigation?(.openOrganizedGroup(item.groupID))
         case .participant(let token): onNavigation?(.openParticipation(token))
         }
+    }
+
+    private func updateState(_ newState: GroupListState) {
+        state = newState
+        onStateChange?(newState)
     }
 }
 ```
@@ -1377,10 +1379,10 @@ Visual values exist only in `DesignSystem/Tokens`. Screens and components use th
 | Token | Content |
 |---|---|
 | `ColorToken` | Brand colors in the Asset Catalog, light / dark: `accent` (`#1E6B52` / `#4CC38A`), `onAccent` (`#FFFFFF` / `#000000`), `onAccentSecondary` (`#D6EBE2` / `#103826`), `accentSoft` (`#E3F0EA` / `#1B3329`), `textSecondary` (`#5F5F66` / `#A1A1A8`), `warning` (`#8A5A12` / `#F2C46D`), `warningSoft` (`#FDF1DC` / `#3A2A10`). System colors: `background` (`systemGroupedBackground`), `surface` (`secondarySystemGroupedBackground`), `separator` (`separator`), `inactive` (`systemGray4`), `textPrimary` (`label`), `textTertiary` (`tertiaryLabel`, decorative glyphs only), `destructive` (`systemRed`). `avatarPalette`: six background / foreground pairs for participant initials (green, amber, blue, pink, purple, coral), picked with `avatarColors(at:)` |
-| `TypographyToken` | `font(for:)` with the styles `largeTitle` (34 bold), `title` (28 bold), `cardTitle` (20 bold), `headline` (17 semibold), `body` (17), `callout` (16), `subheadline` (15), `footnote` (13), `sectionHeader` (13 semibold), `caption` (12 semibold) and `revealName` (48 heavy). Each one takes the size of a system text style at the default content size and is scaled with `UIFontMetrics` for that text style; `revealName` uses the `largeTitle` metrics |
+| `TypographyToken` | One static property per style: `largeTitle` (34 bold), `title` (28 bold), `cardTitle` (20 bold), `headline` (17 semibold), `body` (17), `callout` (16), `subheadline` (15), `footnote` (13), `sectionHeader` (13 semibold), `caption` (12 semibold) and `revealName` (48 heavy). Each one is a system font scaled with `UIFontMetrics` for the matching text style (`revealName` uses `largeTitle`) |
 | `SpacingToken` | `xxSmall` 4, `xSmall` 8, `small` 12, `medium` 16, `large` 24, `xLarge` 32, `screenMargin` 20 |
 | `RadiusToken` | `tag` 8, `field` 12, `banner` 14, `card` 16, `button` 16, `hero` 22, `revealHeader` 28, always with `cornerCurve = .continuous` |
-| `SizeToken` | `minimumTouchTarget` 44, `primaryButtonMinHeight` 54, `rowMinHeight` 50, `avatarSmall` 32, `avatarMedium` 36, `iconTile` 48, `heroIcon` 72, `progressBarHeight` 4. Heights of views with text are minimums (`greaterThanOrEqualTo`) |
+| `SizeToken` | `minimumTouchTarget` 44, `primaryButtonMinHeight` 54, `rowMinHeight` 50, `avatarSmall` 32, `avatarMedium` 36, `iconTile` 48, `heroIcon` 72, `separatorThickness` 0.5, `progressBarHeight` 4. Heights of views with text are minimums (`greaterThanOrEqualTo`) |
 | `IconToken` | Names of the SF Symbols used (technical constants, not user-facing text) |
 
 The palette follows the screen mockups ("Amigo Secreto – Telas v1" design canvas): a deep green accent with soft tinted backgrounds, cards over the grouped background and SF Pro in the system text styles.
@@ -1566,7 +1568,6 @@ sortix/
 │   │   │   └── Components/
 │   │   │       ├── FormScrollView.swift
 │   │   │       ├── FormSectionView.swift
-│   │   │       ├── HairlineView.swift
 │   │   │       ├── TextFieldRow.swift
 │   │   │       ├── TextViewRow.swift
 │   │   │       ├── ToggleRow.swift

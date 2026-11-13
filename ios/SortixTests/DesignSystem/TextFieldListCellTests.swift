@@ -7,7 +7,7 @@ struct TextFieldListCellTests {
     @Test func reuseClearsClosures() {
         let cell = TextFieldListCell(frame: .zero)
         cell.onTextChange = { _ in }
-        cell.onReturn = { true }
+        cell.onReturn = {}
 
         cell.prepareForReuse()
 
@@ -15,17 +15,13 @@ struct TextFieldListCellTests {
         #expect(cell.onReturn == nil)
     }
 
-    @Test func returnKeepsFocusOnlyWhenRequested() {
+    @Test func returnKeyCallsOnReturn() {
         let cell = TextFieldListCell(frame: .zero)
         var returnCount = 0
-        cell.onReturn = {
-            returnCount += 1
-            return true
-        }
+        cell.onReturn = { returnCount += 1 }
 
-        let shouldInsertNewline = cell.textFieldShouldReturn(cell.textField)
+        _ = cell.textFieldShouldReturn(cell.textField)
 
         #expect(returnCount == 1)
-        #expect(!shouldInsertNewline)
     }
 }

@@ -78,8 +78,7 @@ enum ColorToken {
     /// Returns the avatar colors for a position in a list, cycling through `avatarPalette`.
     static func avatarColors(at index: Int) -> AvatarColors {
         let palette = avatarPalette
-        let wrappedIndex = ((index % palette.count) + palette.count) % palette.count
-        return palette[wrappedIndex]
+        return palette[index % palette.count]
     }
 }
 

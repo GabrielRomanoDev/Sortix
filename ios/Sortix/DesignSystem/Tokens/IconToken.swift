@@ -22,9 +22,4 @@ enum IconToken: String, CaseIterable {
     var image: UIImage? {
         UIImage(systemName: rawValue)
     }
-
-    /// The symbol image rendered with a configuration, such as a scaled text style.
-    func image(with configuration: UIImage.SymbolConfiguration) -> UIImage? {
-        UIImage(systemName: rawValue, withConfiguration: configuration)
-    }
 }

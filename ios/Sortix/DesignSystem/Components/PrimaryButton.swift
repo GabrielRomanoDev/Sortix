@@ -1,17 +1,13 @@
 import UIKit
 
 /// The main action of a screen, pinned by the screen to the bottom safe area.
-///
-/// While `showsActivityIndicator` is on, the button shows a spinner in place of its title and
-/// ignores taps, so an operation cannot be started twice.
 @MainActor
 final class PrimaryButton: UIButton {
-    /// Shows the activity indicator and blocks taps while an operation runs.
+    /// Shows a spinner in place of the title and ignores taps while an operation runs.
     var showsActivityIndicator = false {
         didSet {
-            guard showsActivityIndicator != oldValue else { return }
+            configuration?.showsActivityIndicator = showsActivityIndicator
             isUserInteractionEnabled = !showsActivityIndicator
-            setNeedsUpdateConfiguration()
         }
     }
 
@@ -22,13 +18,7 @@ final class PrimaryButton: UIButton {
         super.init(frame: .zero)
         configuration = Self.makeConfiguration(title: title)
         addAction(UIAction { _ in action() }, for: .primaryActionTriggered)
-        configurationUpdateHandler = { button in
-            guard let button = button as? PrimaryButton else { return }
-            button.configuration?.showsActivityIndicator = button.showsActivityIndicator
-        }
-        NSLayoutConstraint.activate([
-            heightAnchor.constraint(greaterThanOrEqualToConstant: SizeToken.primaryButtonMinHeight)
-        ])
+        setUpLayout()
     }
 
     @available(*, unavailable)
@@ -36,9 +26,12 @@ final class PrimaryButton: UIButton {
         fatalError("init(coder:) is not supported; PrimaryButton is built in code.")
     }
 
-    /// Replaces the title, e.g. "Revelar quem eu tirei" becoming "Ver quem eu tirei".
     func setTitle(_ title: String) {
         configuration?.title = title
+    }
+
+    private func setUpLayout() {
+        heightAnchor.constraint(greaterThanOrEqualToConstant: SizeToken.primaryButtonMinHeight).isActive = true
     }
 
     private static func makeConfiguration(title: String) -> UIButton.Configuration {
@@ -47,12 +40,12 @@ final class PrimaryButton: UIButton {
         configuration.buttonSize = .large
         configuration.baseBackgroundColor = ColorToken.accent
         configuration.baseForegroundColor = ColorToken.onAccent
-        configuration.background.cornerRadius = RadiusToken.button
         configuration.cornerStyle = .fixed
-        configuration.titleLineBreakMode = .byWordWrapping
+        configuration.background.cornerRadius = RadiusToken.button
+        let font = TypographyToken.headline
         configuration.titleTextAttributesTransformer = UIConfigurationTextAttributesTransformer { attributes in
             var attributes = attributes
-            attributes.font = TypographyToken.font(for: .headline)
+            attributes.font = font
             return attributes
         }
         return configuration

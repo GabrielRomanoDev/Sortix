@@ -19,6 +19,8 @@ enum SizeToken {
     static let iconTile: CGFloat = 48
     /// Diameter of the circle behind the icon of a success header.
     static let heroIcon: CGFloat = 72
+    /// Thickness of the separator between rows of a `FormSectionView`.
+    static let separatorThickness: CGFloat = 0.5
     /// Height of each segment of the creation flow progress bar.
     static let progressBarHeight: CGFloat = 4
 }

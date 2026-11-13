@@ -15,15 +15,19 @@ final class InlineErrorLabel: UILabel {
 
     override init(frame: CGRect) {
         super.init(frame: frame)
-        font = TypographyToken.font(for: .footnote)
-        textColor = ColorToken.destructive
-        adjustsFontForContentSizeCategory = true
-        numberOfLines = 0
-        isHidden = true
+        setUpStyle()
     }
 
     @available(*, unavailable)
     required init?(coder: NSCoder) {
         fatalError("init(coder:) is not supported; InlineErrorLabel is built in code.")
+    }
+
+    private func setUpStyle() {
+        font = TypographyToken.footnote
+        textColor = ColorToken.destructive
+        adjustsFontForContentSizeCategory = true
+        numberOfLines = 0
+        isHidden = true
     }
 }

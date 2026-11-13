@@ -1,17 +1,11 @@
 import UIKit
 
-/// A text field row for `FormSectionView`, with an inline validation message below it.
+/// A text field row for `FormSectionView`, with a validation message below it.
 ///
 /// With a title, the title sits on the leading side and the value is right-aligned, like a settings
-/// row; at accessibility text sizes the two stack vertically. Without a title, the field fills the
-/// row and relies on its placeholder.
+/// row. Without a title, the field fills the row and relies on its placeholder.
 @MainActor
 final class TextFieldRow: UIView {
-    struct Model: Equatable {
-        var text: String
-        var errorMessage: String?
-    }
-
     let textField = UITextField()
 
     /// Called on every edit with the field's current text.
@@ -22,23 +16,17 @@ final class TextFieldRow: UIView {
 
     private let titleLabel = UILabel()
     private let errorLabel = InlineErrorLabel()
-    private let fieldStack = UIStackView()
-    private let hasTitle: Bool
 
     /// - Parameters:
     ///   - title: Visible label from the String Catalog. Also used as the accessibility label.
     ///   - placeholder: Placeholder from the String Catalog.
     ///   - accessibilityLabel: Overrides the accessibility label, e.g. to add "obrigatório".
     init(title: String? = nil, placeholder: String? = nil, accessibilityLabel: String? = nil) {
-        hasTitle = title != nil
         super.init(frame: .zero)
         setUpTitle(title)
-        setUpTextField(placeholder: placeholder, accessibilityLabel: accessibilityLabel ?? title ?? placeholder)
+        setUpTextField(hasTitle: title != nil)
+        setTexts(title: title, placeholder: placeholder, accessibilityLabel: accessibilityLabel)
         setUpLayout()
-        updateAxis()
-        registerForTraitChanges([UITraitPreferredContentSizeCategory.self]) { (row: TextFieldRow, _) in
-            row.updateAxis()
-        }
     }
 
     @available(*, unavailable)
@@ -46,45 +34,47 @@ final class TextFieldRow: UIView {
         fatalError("init(coder:) is not supported; TextFieldRow is built in code.")
     }
 
-    /// Applies ready-to-display data. Does not trigger `onTextChange`.
-    func configure(with model: Model) {
-        if textField.text != model.text {
-            textField.text = model.text
+    /// Shows the given text and validation message. Does not call `onTextChange`.
+    func configure(text: String, errorMessage: String?) {
+        if textField.text != text {
+            textField.text = text
         }
-        errorLabel.message = model.errorMessage
+        errorLabel.message = errorMessage
+    }
+
+    // MARK: - Texts
+
+    private func setTexts(title: String?, placeholder: String?, accessibilityLabel: String?) {
+        titleLabel.text = title
+        textField.placeholder = placeholder
+        textField.accessibilityLabel = accessibilityLabel ?? title ?? placeholder
     }
 
     // MARK: - Setup
 
     private func setUpTitle(_ title: String?) {
-        titleLabel.text = title
-        titleLabel.font = TypographyToken.font(for: .body)
+        titleLabel.font = TypographyToken.body
         titleLabel.textColor = ColorToken.textPrimary
         titleLabel.adjustsFontForContentSizeCategory = true
         titleLabel.numberOfLines = 0
-        titleLabel.isHidden = !hasTitle
+        titleLabel.isHidden = title == nil
         titleLabel.isAccessibilityElement = false
-        titleLabel.setContentHuggingPriority(.defaultHigh, for: .horizontal)
     }
 
-    private func setUpTextField(placeholder: String?, accessibilityLabel: String?) {
-        textField.placeholder = placeholder
-        textField.font = TypographyToken.font(for: .body)
+    private func setUpTextField(hasTitle: Bool) {
+        textField.font = TypographyToken.body
         textField.textColor = hasTitle ? ColorToken.textSecondary : ColorToken.textPrimary
+        textField.textAlignment = hasTitle ? .right : .natural
         textField.adjustsFontForContentSizeCategory = true
         textField.clearButtonMode = .whileEditing
-        textField.accessibilityLabel = accessibilityLabel
         textField.delegate = self
-        textField.setContentCompressionResistancePriority(.defaultHigh, for: .horizontal)
         textField.addAction(UIAction { [weak self] _ in
-            guard let self else { return }
-            self.onTextChange?(self.textField.text ?? "")
+            self?.onTextChange?(self?.textField.text ?? "")
         }, for: .editingChanged)
     }
 
     private func setUpLayout() {
-        fieldStack.addArrangedSubview(titleLabel)
-        fieldStack.addArrangedSubview(textField)
+        let fieldStack = UIStackView(arrangedSubviews: [titleLabel, textField])
         fieldStack.spacing = SpacingToken.small
         fieldStack.alignment = .center
 
@@ -103,14 +93,6 @@ final class TextFieldRow: UIView {
             heightAnchor.constraint(greaterThanOrEqualToConstant: SizeToken.rowMinHeight),
             textField.heightAnchor.constraint(greaterThanOrEqualToConstant: SizeToken.minimumTouchTarget)
         ])
-    }
-
-    private func updateAxis() {
-        let isAccessibilitySize = traitCollection.preferredContentSizeCategory.isAccessibilityCategory
-        let stacksVertically = hasTitle && isAccessibilitySize
-        fieldStack.axis = stacksVertically ? .vertical : .horizontal
-        fieldStack.alignment = stacksVertically ? .fill : .center
-        textField.textAlignment = hasTitle && !stacksVertically ? .right : .natural
     }
 }
 

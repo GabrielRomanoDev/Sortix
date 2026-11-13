@@ -20,7 +20,7 @@ struct TextFieldRowTests {
         var changeCount = 0
         row.onTextChange = { _ in changeCount += 1 }
 
-        row.configure(with: TextFieldRow.Model(text: "Bruno", errorMessage: nil))
+        row.configure(text: "Bruno", errorMessage: nil)
 
         #expect(row.textField.text == "Bruno")
         #expect(changeCount == 0)

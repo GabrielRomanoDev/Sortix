@@ -14,7 +14,8 @@ final class FormSectionView: UIView {
     ///   - footer: Supporting text below the container, from the String Catalog.
     init(header: String? = nil, footer: String? = nil) {
         super.init(frame: .zero)
-        setUpLabels(header: header, footer: footer)
+        setUpLabels()
+        setTexts(header: header, footer: footer)
         setUpContainer()
         setUpLayout()
     }
@@ -38,17 +39,20 @@ final class FormSectionView: UIView {
 
     // MARK: - Setup
 
-    private func setUpLabels(header: String?, footer: String?) {
+    private func setTexts(header: String?, footer: String?) {
         headerLabel.text = header?.uppercased()
-        headerLabel.font = TypographyToken.font(for: .sectionHeader)
+        headerLabel.isHidden = header == nil
+        footerLabel.text = footer
+        footerLabel.isHidden = footer == nil
+    }
+
+    private func setUpLabels() {
+        headerLabel.font = TypographyToken.sectionHeader
         headerLabel.textColor = ColorToken.textSecondary
         headerLabel.accessibilityTraits = .header
-        headerLabel.isHidden = header == nil
 
-        footerLabel.text = footer
-        footerLabel.font = TypographyToken.font(for: .footnote)
+        footerLabel.font = TypographyToken.footnote
         footerLabel.textColor = ColorToken.textSecondary
-        footerLabel.isHidden = footer == nil
 
         [headerLabel, footerLabel].forEach { label in
             label.adjustsFontForContentSizeCategory = true
@@ -95,10 +99,13 @@ final class FormSectionView: UIView {
 
     private func makeSeparator() -> UIView {
         let wrapper = UIView()
-        let hairline = HairlineView()
-        wrapper.addSubviewsForAutoLayout(hairline)
+        let line = UIView()
+        line.backgroundColor = ColorToken.separator
+        wrapper.addSubviewsForAutoLayout(line)
         let insets = NSDirectionalEdgeInsets(top: 0, leading: SpacingToken.medium, bottom: 0, trailing: 0)
-        NSLayoutConstraint.activate(hairline.constraintsPinningEdges(to: wrapper, insets: insets))
+        NSLayoutConstraint.activate(line.constraintsPinningEdges(to: wrapper, insets: insets) + [
+            line.heightAnchor.constraint(equalToConstant: SizeToken.separatorThickness)
+        ])
         return wrapper
     }
 }

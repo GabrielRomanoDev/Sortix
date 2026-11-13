@@ -1,0 +1,66 @@
+{
+  "sourceLanguage": "pt-BR",
+  "strings": {
+    "groupList.createButton.accessibilityLabel": {
+      "comment": "VoiceOver label of the + button in the group list navigation bar.",
+      "extractionState": "manual",
+      "localizations": {
+        "pt-BR": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Criar grupo"
+          }
+        }
+      }
+    },
+    "groupList.empty.action": {
+      "comment": "Button of the group list empty state that starts creating a group.",
+      "extractionState": "manual",
+      "localizations": {
+        "pt-BR": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Criar grupo"
+          }
+        }
+      }
+    },
+    "groupList.empty.message": {
+      "comment": "Message below the title of the group list empty state.",
+      "extractionState": "manual",
+      "localizations": {
+        "pt-BR": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Crie um amigo secreto ou abra o link que você recebeu."
+          }
+        }
+      }
+    },
+    "groupList.empty.title": {
+      "comment": "Title of the group list empty state, shown when the person has no groups.",
+      "extractionState": "manual",
+      "localizations": {
+        "pt-BR": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Nenhum grupo ainda"
+          }
+        }
+      }
+    },
+    "groupList.title": {
+      "comment": "Large navigation title of the group list, the first screen of the app.",
+      "extractionState": "manual",
+      "localizations": {
+        "pt-BR": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Seus grupos"
+          }
+        }
+      }
+    }
+  },
+  "version": "1.0"
+}

@@ -2,30 +2,23 @@ import UIKit
 
 /// A list cell holding an editable text field, for lists built with `UICollectionView`.
 ///
-/// Used to add participants (screen 3) and to edit a participant's name (screen 3b). Closures are
-/// cleared on reuse, so the cell registration must assign them again with `[weak self]`.
+/// Used to add participants (screen 3) and to edit a participant's name (screen 3b). The keyboard
+/// stays open on return, so several names can be typed in a row; call `resignFirstResponder()` on
+/// `textField` to close it. Closures are cleared on reuse, so assign them again in the registration.
 @MainActor
 final class TextFieldListCell: UICollectionViewListCell {
-    struct Model: Equatable {
-        var text: String
-        var placeholder: String?
-        var accessibilityLabel: String
-        var returnKeyType: UIReturnKeyType = .default
-        var autocapitalizationType: UITextAutocapitalizationType = .words
-    }
-
     let textField = UITextField()
 
     /// Called on every edit with the field's current text.
     var onTextChange: ((String) -> Void)?
 
-    /// Called when the person taps the return key. Return `true` to keep the keyboard open,
-    /// as when adding several participants in a row.
-    var onReturn: (() -> Bool)?
+    /// Called when the person taps the return key.
+    var onReturn: (() -> Void)?
 
     override init(frame: CGRect) {
         super.init(frame: frame)
         setUpTextField()
+        setUpLayout()
     }
 
     @available(*, unavailable)
@@ -39,42 +32,39 @@ final class TextFieldListCell: UICollectionViewListCell {
         onReturn = nil
     }
 
-    func configure(with model: Model) {
-        if textField.text != model.text {
-            textField.text = model.text
+    func configure(text: String, placeholder: String?, accessibilityLabel: String, returnKeyType: UIReturnKeyType) {
+        if textField.text != text {
+            textField.text = text
         }
-        textField.placeholder = model.placeholder
-        textField.accessibilityLabel = model.accessibilityLabel
-        textField.returnKeyType = model.returnKeyType
-        textField.autocapitalizationType = model.autocapitalizationType
+        textField.placeholder = placeholder
+        textField.accessibilityLabel = accessibilityLabel
+        textField.returnKeyType = returnKeyType
     }
 
+    // MARK: - Setup
+
     private func setUpTextField() {
-        textField.font = TypographyToken.font(for: .body)
+        textField.font = TypographyToken.body
         textField.textColor = ColorToken.textPrimary
         textField.adjustsFontForContentSizeCategory = true
         textField.clearButtonMode = .whileEditing
         textField.delegate = self
         textField.addAction(UIAction { [weak self] _ in
-            guard let self else { return }
-            self.onTextChange?(self.textField.text ?? "")
+            self?.onTextChange?(self?.textField.text ?? "")
         }, for: .editingChanged)
+    }
 
+    private func setUpLayout() {
         contentView.addSubviewsForAutoLayout(textField)
-        NSLayoutConstraint.activate(
-            textField.constraintsPinningEdges(to: contentView.layoutMarginsGuide) + [
-                contentView.heightAnchor.constraint(greaterThanOrEqualToConstant: SizeToken.rowMinHeight)
-            ]
-        )
+        NSLayoutConstraint.activate(textField.constraintsPinningEdges(to: contentView.layoutMarginsGuide) + [
+            contentView.heightAnchor.constraint(greaterThanOrEqualToConstant: SizeToken.rowMinHeight)
+        ])
     }
 }
 
 extension TextFieldListCell: UITextFieldDelegate {
     func textFieldShouldReturn(_ textField: UITextField) -> Bool {
-        let keepsFocus = onReturn?() ?? false
-        if !keepsFocus {
-            textField.resignFirstResponder()
-        }
+        onReturn?()
         return false
     }
 }
