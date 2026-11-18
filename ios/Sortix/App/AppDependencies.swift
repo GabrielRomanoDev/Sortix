@@ -5,5 +5,6 @@ import Foundation
 ///
 /// Services join this type as their stages land (section 6.5 of the specification).
 struct AppDependencies {
+    let drawService: any DrawServiceProtocol
     let locale: Locale
 }
