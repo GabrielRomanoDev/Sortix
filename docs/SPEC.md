@@ -1,6 +1,8 @@
 # Sortix — Secret Santa · v1 Specification
 
-> Document version 1.0 · 2026-10-31 · Status: approved for development
+> Document version 1.1 · 2026-11-17 · Status: approved for development
+>
+> Version 1.1 removes Cloud Functions: the app and the website use Firestore directly, protected by the security rules, and the project stays on the free Spark plan (sections 11 to 13).
 >
 > This document consolidates every decision made for v1. When the code and this document disagree, one of them is wrong: fix the code or update the document in the same commit.
 >
@@ -20,7 +22,7 @@
 10. [Draw algorithm](#10-draw-algorithm)
 11. [Firestore data model](#11-firestore-data-model)
 12. [Firestore security rules](#12-firestore-security-rules)
-13. [Cloud Functions contracts](#13-cloud-functions-contracts)
+13. [Data access contracts](#13-data-access-contracts)
 14. [Universal Links](#14-universal-links)
 15. [Edge cases](#15-edge-cases)
 16. [Testing strategy](#16-testing-strategy)
@@ -46,7 +48,7 @@ Sortix is an iPhone app that organizes Secret Santa ("amigo secreto") without si
 |---|---|---|
 | P1 | No sign-up, ever | Invisible anonymous authentication. There is no login in v1 or v2. Recovery uses a link, not an account. |
 | P2 | Participants don't need to install anything | The whole participant flow (access, reveal, suggestions) works on the website. |
-| P3 | The organizer takes part without seeing who drew whom | The interface never shows another person's result. The result lives in a collection the app does not read. |
+| P3 | The organizer takes part without seeing who drew whom | The interface never shows another person's result. Each result is stored under its giver's token, and the security rules refuse it to the organizer's device, except the organizer's own. |
 | P4 | Simple and fast | No field beyond what is needed. The only thing the organizer is asked about themselves is their own name. |
 | P5 | Native and accessible | iOS grouped list look, dark mode, Dynamic Type and basic VoiceOver. |
 | P6 | Ready for other languages | No user-facing text in code; dates, currency and numbers formatted by locale. |
@@ -61,14 +63,14 @@ Sortix is an iPhone app that organizes Secret Santa ("amigo secreto") without si
 | Domain | `sortixamigosecreto.com.br` |
 | Bundle ID | `br.com.sortixamigosecreto.app.Sortix` (final after the first submission) |
 | Firebase project ID | `sortix-amigo-secreto` (final) |
-| Firestore and Functions region | `southamerica-east1` (São Paulo) |
+| Firestore region | `southamerica-east1` (São Paulo) |
 | Minimum iOS | 17.0 |
 | Devices | iPhone only, portrait only |
 | Countries | Brazil only |
 | Language | Brazilian Portuguese (pt-BR), ready for others |
 | Tooling | Xcode 26 or later, Swift 6 (language mode 6, strict concurrency) |
-| Dependencies (SPM) | Firebase iOS SDK (FirebaseAuth, FirebaseFirestore, FirebaseFunctions, FirebaseCrashlytics) |
-| Backend | Firebase: anonymous Auth, Firestore, 2nd gen Cloud Functions in TypeScript, Hosting, Blaze plan with a budget alert |
+| Dependencies (SPM) | Firebase iOS SDK (FirebaseAuth, FirebaseFirestore, FirebaseCrashlytics) |
+| Backend | Firebase on the free Spark plan: anonymous Auth, Firestore with security rules, Hosting. No Cloud Functions. Daily cleanup job on GitHub Actions (section 11.3) |
 | Apple account | Apple Developer Program as an individual (your legal name appears as the seller) |
 
 The App Store name, the name under the icon and the subtitle are user-facing texts, so they stay in pt-BR.
@@ -78,13 +80,13 @@ The App Store name, the name under the icon and the subtitle are user-facing tex
 - Group list (organized and joined), with an empty state and an "About" menu (privacy policy, support, version).
 - Group creation in three steps: rules; participants and restrictions; review and draw.
 - Draw on the organizer's iPhone, without mutual pairs, with one-way restrictions and a clear explanation when it is impossible.
-- Atomic group write through a Cloud Function, which validates the draw and generates the tokens.
+- Group written directly to Firestore by the organizer's iPhone, which generates the tokens and validates the draw before writing; security rules protect every document.
 - Group status screen for the organizer: sending and resending links, per-participant status, recovery link, group deletion.
 - Access through the personal link in the app (Universal Link) and on the website.
 - Reveal with the drawn name and that person's suggestions.
 - Gift suggestions: add, edit and remove, in the app and on the website, up to 5 per person.
 - Organizer recovery link.
-- Automatic data expiration (Firestore TTL).
+- Automatic data expiration (daily cleanup job).
 - Static website (HTML + JavaScript, no framework) with access, reveal, suggestions, recovery page, privacy policy and support.
 - pt-BR localization with a String Catalog and typed symbols; website with one JSON file per language.
 - Dark mode, Dynamic Type and basic VoiceOver.
@@ -103,7 +105,8 @@ These decisions were made while writing the specification and replace what was i
 |---|---|---|---|
 | Restrictions | To be defined | One-way: "X cannot be drawn by Y" | The goal is to stop someone from drawing the person who will buy their own gift (e.g. a child and their mother). |
 | Draw shape | To be defined | No mutual pairs; cycles of 3 or more people; more than one cycle allowed | Product request. Allowing more than one cycle reduces impossible cases. |
-| Where the draw runs | Cloud Function recommended | On the organizer's iPhone; the Function only validates and writes | Privacy enforced by the interface is enough. The whole core stays in Swift. |
+| Where the draw runs | Cloud Function recommended | On the organizer's iPhone, which also writes the group to Firestore | Privacy enforced by the interface is enough. The whole core stays in Swift. |
+| Backend | Cloud Functions (Blaze plan) | No Functions: client SDKs and security rules, Spark plan | No billing account needed. The organizer is trusted (friends and family), so the rules only guard against accidental peeking. |
 | Maximum participants | To be defined | 50 | Product request. |
 | Edit and remove suggestions | v2 | v1, in the app and on the website | Considered essential. |
 | Login | Sign in with Apple in v2 | Never. Replaced by the recovery link | Principle P1. |
@@ -147,7 +150,7 @@ These decisions were made while writing the specification and replace what was i
 
 ## 3. Business rules
 
-Size limits are centralized in `FieldLimits` (app) and `limits.ts` (Functions and website) and are identical in all three places.
+Size limits are centralized in `FieldLimits` (app) and `web/js/limits.js` (website) and are identical in both places.
 
 ### 3.1 Group
 
@@ -182,14 +185,14 @@ Size limits are centralized in `FieldLimits` (app) and `limits.ts` (Functions an
 - **BR-20** There are never mutual pairs. Every cycle has 3 or more people, and the draw may have more than one cycle. Example: with 6 people, the result may be one cycle of 6 or two cycles of 3.
 - **BR-21** Every restriction is respected. If that is impossible, the review screen explains why and does not allow drawing (section 10.5).
 - **BR-22** Every valid result has the same chance of coming out when the draw is solved by sampling (the common case). In hard cases, solved by search, any valid result may come out, but with no guarantee of equal chances (section 10.2).
-- **BR-23** The draw is computed on the organizer's iPhone. The result is sent to the server, which checks BR-18 to BR-21 before writing. The app never displays, logs or stores the result on the device.
+- **BR-23** The draw is computed on the organizer's iPhone, which checks BR-18 to BR-21 with the `AssignmentValidator` before writing it to Firestore. The app never displays, logs or stores the result on the device, and never reads it back except for the organizer's own.
 - **BR-24** With exactly 3 participants, the review warns that anyone who knows who they drew can deduce the whole draw.
 - **BR-25** The review warns that participants and restrictions cannot be changed after the draw.
 - **BR-26** Resending the same draw after a network failure does not create a duplicate group. The group ID, generated on the device, works as an idempotency key.
 
 ### 3.5 Links and access
 
-- **BR-27** Each participant, including the organizer, receives an access token: 32 random bytes generated on the server, in base64url (43 characters). The link is `https://sortixamigosecreto.com.br/g/<token>`.
+- **BR-27** Each participant, including the organizer, receives an access token: 32 random bytes from a cryptographically secure generator on the organizer's iPhone, in base64url (43 characters). The link is `https://sortixamigosecreto.com.br/g/<token>`.
 - **BR-28** Tokens do not expire with time. They stop working when the group is deleted or expires (BR-51).
 - **BR-29** The organizer sends each participant's link through the iOS share sheet. The button stays available after the first send, labeled "Reenviar".
 - **BR-30** The "Link enviado" status is recorded when the share sheet completes. iOS does not confirm message delivery.
@@ -213,7 +216,7 @@ Size limits are centralized in `FieldLimits` (app) and `limits.ts` (Functions an
 
 ### 3.7 Organizer and recovery
 
-- **BR-45** At the draw, the server generates a recovery link exclusive to the organizer: `https://sortixamigosecreto.com.br/r/<token>`.
+- **BR-45** At the draw, the organizer's iPhone generates a recovery link exclusive to the organizer: `https://sortixamigosecreto.com.br/r/<token>`.
 - **BR-46** The status screen shows the "Guarde seu link de recuperação" card until the organizer taps "Guardar link". The link is always available in the group menu.
 - **BR-47** Opening the recovery link in the app asks for confirmation with the group name. Once confirmed, this device becomes the organizer and the previous one loses access.
 - **BR-48** Opened on the website, the recovery link only explains that it must be opened on the iPhone with the app installed.
@@ -222,15 +225,15 @@ Size limits are centralized in `FieldLimits` (app) and `limits.ts` (Functions an
 ### 3.8 Deletion and retention
 
 - **BR-50** The organizer can delete the group, with confirmation. Deletion is permanent and erases all group data, including the memberships on every device.
-- **BR-51** Data expires automatically: `expiresAt` is the event date + 60 days or, without a date, creation + 120 days. The Functions treat expired documents as nonexistent even before the TTL physically deletes them.
+- **BR-51** Data expires automatically: `expiresAt` is the event date + 60 days or, without a date, creation + 120 days. The app and the website treat expired documents as nonexistent, and the daily cleanup job deletes them (section 11.3).
 - **BR-52** Links of a deleted, expired or nonexistent group show: "Este link não é mais válido. Ele pode ter sido digitado errado ou o grupo foi excluído pelo organizador."
 
 ### 3.9 Privacy and localization
 
 - **BR-53** There is no sign-up or login. The anonymous account is created without any screen on first launch.
 - **BR-54** The only personal data stored are the typed names and the suggestions. There is no phone number or email.
-- **BR-55** Tokens, assignments, names and suggestions are never logged (Functions, Crashlytics, console).
-- **BR-56** No user-facing text lives in code. Dates, values and numbers are formatted with the user's locale. The server never returns user-facing text, only reason codes, which the app and the website translate.
+- **BR-55** Tokens, assignments, names and suggestions are never logged (app, website, cleanup job, Crashlytics, console).
+- **BR-56** No user-facing text lives in code. Dates, values and numbers are formatted with the user's locale. Errors become reason codes (section 13.2), which the app and the website translate.
 
 ---
 
@@ -297,19 +300,16 @@ sequenceDiagram
     participant VM as DrawReviewViewModel
     participant DS as DrawService (Swift, off the main thread)
     participant GS as GroupService
-    participant CF as createGroup Function
-    participant DB as Firestore
+    participant DB as Firestore (security rules)
     O->>VM: opens the review
     VM->>DS: draw(input)
     DS-->>VM: feasible or reason for impossibility
     O->>VM: taps Sortear
     VM->>DS: draw(input)
-    DS-->>VM: Assignment
-    VM->>GS: createGroup(request with groupId, participants, restrictions and assignments)
-    GS->>CF: authenticated call
-    CF->>CF: validates group and draw, generates tokens
-    CF->>DB: writes everything in a single batch
-    CF-->>GS: participant tokens and recovery token
+    DS-->>VM: Assignment (validated)
+    VM->>GS: createGroup(request with groupId, participants, restrictions, assignments and tokens)
+    GS->>DB: content batches (participants, tokens, assignments)
+    GS->>DB: commit batch (group, recovery token, membership)
     GS-->>VM: CreatedGroup
     VM-->>O: navigates to the status screen
 ```
@@ -317,26 +317,25 @@ sequenceDiagram
 1. When the review opens, the `DrawReviewViewModel` builds the `DrawInput` from the draft and calls the `DrawService`, which runs the `DrawEngine` off the main thread.
 2. If the result is a failure (`DrawFailure`), the screen shows the matching message (section 10.5) and disables "Sortear".
 3. When "Sortear" is tapped, the ViewModel enters the `drawing` state. The button shows a progress indicator and the screen blocks interaction.
-4. The `DrawService` computes a new result.
-5. The ViewModel builds the `CreateGroupRequest`: `groupId` (UUID generated when the review opens), rules, participants with restrictions and assignments. The request is kept in memory for retries.
-6. The `GroupService` calls the `createGroup` Function.
-7. The Function validates everything (section 13.3.1), generates the tokens and writes in a single batch: group, participants, assignments, tokens, recovery token and the organizer's membership.
-8. The app receives the tokens, saves the organizer's name in local preferences and notifies the coordinator (`onNavigation(.groupCreated(groupId))`).
+4. The `DrawService` computes a new result, already checked by the `AssignmentValidator`.
+5. The ViewModel builds the `CreateGroupRequest`: `groupId` (UUID generated when the review opens), rules, participants with restrictions, assignments, the access tokens, the recovery token and `expiresAt`. The request is kept in memory for retries.
+6. The `GroupService` writes the content batches (participants, link documents and assignments) and then the commit batch (group, recovery token and the organizer's membership), as in section 13.3.1.
+7. Firestore applies the security rules to every document (section 12).
+8. The app saves the organizer's name in local preferences and notifies the coordinator (`onNavigation(.groupCreated(groupId))`).
 9. The `CreateGroupCoordinator` finishes. The `AppCoordinator` dismisses the modal and starts the `GroupCoordinator` in organizer mode, which pushes the status screen.
 
 **Error paths**
 
-- Network failure or timeout: "Não foi possível sortear" alert with "Tentar novamente". The retry resends the same request, with the same `groupId` and the same assignments. If the server had already written, it returns the same group (idempotency).
-- App closed during the call: if the server wrote, the group appears in the list through the organizer's membership. If it didn't, nothing is saved.
-- The server rejects the draw (`INVALID_ASSIGNMENT`): this indicates a bug. The app shows the generic message, records a non-fatal error in Crashlytics (without names) and allows retrying with a new draw and a new `groupId`.
-- Validation failure on the server (e.g. duplicate name due to a normalization difference): the app shows the reason message and returns to the editable state.
+- Network failure or timeout: "Não foi possível sortear" alert with "Tentar novamente". The retry rewrites the same request, with the same `groupId`, tokens and assignments. If the commit batch had already been written, the app detects the group and continues (idempotency).
+- App closed during the writes: if the commit batch was written, the group appears in the list through the organizer's membership. If it wasn't, nothing appears; the content documents already written are unreachable and the cleanup job deletes them when they expire.
+- Firestore rejects a write (`permission-denied`): this indicates a bug. The app shows the generic message, records a non-fatal error in Crashlytics (without names) and allows retrying with a new draw and a new `groupId`.
 
 ### 4.4 Sending the links
 
 1. On the status screen, the organizer taps "Enviar" on a participant's row.
 2. The `ShareMessageBuilder` builds the localized text with the person's name, the group name and the link.
 3. The app presents the `UIActivityViewController` with a single text item that already contains the link.
-4. If sharing completes (`completed == true`), the app immediately updates the row to "Link enviado" and calls the `markLinkShared` Function.
+4. If sharing completes (`completed == true`), the app immediately updates the row to "Link enviado" and writes `linkSharedAt` on the participant (section 13.3.6).
 5. The Firestore listener confirms the new state. The button becomes "Reenviar".
 
 **Recovery link**
@@ -349,7 +348,7 @@ sequenceDiagram
 **Error paths**
 
 - Sharing cancelled: nothing changes.
-- `markLinkShared` fails: the app retries once. If it fails again, it reverts the optimistic state and shows the message "Não foi possível atualizar o status do envio."
+- Writing `linkSharedAt` fails: the app retries once. If it fails again, it reverts the optimistic state and shows the message "Não foi possível atualizar o status do envio."
 - Link sent to the wrong person: the organizer can resend to the right person. There is no way to invalidate the link in v1 (token regeneration is v2).
 
 ### 4.5 Token access in the app (Universal Link, app installed)
@@ -359,21 +358,22 @@ sequenceDiagram
 3. The `DeepLinkParser` turns the URL into `DeepLink.participantAccess(token)`, validating the token format.
 4. The `AppCoordinator` waits for anonymous authentication to finish. If the creation flow is open with no data, it dismisses the modal; if it has data, it holds the link and opens it when the flow ends.
 5. The `AppCoordinator` starts the `GroupCoordinator` in participant mode, which pushes the access screen.
-6. The `AccessViewModel` calls `getGroupAccess(token)`, authenticated. The Function returns the data and creates the `participant` membership if it does not exist yet.
+6. The `AccessViewModel` asks the `AccessService` to open the link (section 13.3.2): it reads `tokens/{token}` and creates the `participant` membership if it does not exist yet.
 7. The screen shows the link owner, the warnings, the rules and the buttons.
 
 **Error paths**
 
-- Token with an invalid format: invalid link screen, without calling the server.
-- Nonexistent token, deleted or expired group (`LINK_NOT_FOUND`): invalid link screen.
+- Token with an invalid format: invalid link screen, without any request.
+- Nonexistent token, deleted or expired group (`LINK_NOT_FOUND`): invalid link screen. If the device had a membership for the group, it is deleted.
 - No internet: error state with "Tentar novamente".
-- This device is the group organizer: the membership stays `organizer` and the access screen works normally.
+- This device is the group organizer and the link is the organizer's own: the membership stays `organizer` and the access screen works normally.
+- This device is the group organizer and the link belongs to someone else (`ORGANIZER_LINK_BLOCKED`): the screen explains that the organizer cannot open other participants' links on this iPhone, and nothing is read or recorded.
 
 ### 4.6 Token access on the website (no app)
 
 1. The participant taps the link and the browser opens `https://sortixamigosecreto.com.br/g/<token>`.
 2. Firebase Hosting rewrites the route to `access.html`.
-3. The JavaScript reads the token from the path and validates its format. It loads the language file and sends `POST /api/getGroupAccess` with `{"data": {"token": "..."}}`.
+3. The JavaScript reads the token from the path and validates its format. It loads the language file, signs in anonymously with the Firebase JS SDK and reads `tokens/{token}` (section 13.3.2).
 4. The page shows the link owner, the warnings, the filled-in rules, the previous reveal (if any), the "Revelar quem eu tirei" button and the "Minhas sugestões" section.
 5. In Safari on iPhone, the Smart App Banner offers to download or open the app.
 
@@ -389,14 +389,14 @@ sequenceDiagram
 
 1. On the access screen, the participant taps "Revelar quem eu tirei".
 2. The `GroupCoordinator` pushes the reveal screen.
-3. The `RevealViewModel` calls `getReveal(token)`. The Function writes `revealedAt` if it is still empty (in a transaction) and returns the drawn name, that person's suggestions and the date of the first reveal.
+3. The `RevealViewModel` calls `reveal(token:)` (section 13.3.3): a transaction writes `revealedAt` on the link document and on the participant if it is still empty; then the app reads the assignment (drawn name) and that person's wish list.
 4. The screen shows "Você tirou" with the name highlighted and the suggestions in cards, or the default message if there are no suggestions yet.
-5. Pull to refresh calls `getReveal` again, without changing `revealedAt`.
+5. Pull to refresh reads the wish list again, without changing `revealedAt`.
 6. Back on the access screen, the text "Revelado pela primeira vez em…" appears and the button becomes "Ver quem eu tirei".
 
 **On the website**
 
-1. The "Revelar quem eu tirei" button calls `POST /api/getReveal`.
+1. The "Revelar quem eu tirei" button runs the same reveal operation (section 13.3.3).
 2. The access section is replaced by the reveal section and focus moves to the heading with the drawn name.
 
 **Error paths**
@@ -409,11 +409,11 @@ sequenceDiagram
 **In the app**
 
 1. On the access screen, the participant taps "Minhas sugestões".
-2. The `MyWishesViewModel` calls `getMyWishes(token)` and shows the list.
+2. The `MyWishesViewModel` loads the wish list (section 13.3.4) and shows it.
 3. "Adicionar sugestão" opens the form (screen 8b) as a sheet, in add mode.
-4. On save, the app validates the fields, normalizes the link and calls `addWish`. On success, it dismisses the sheet, refreshes the list and VoiceOver announces "Sugestão salva".
-5. Tapping a card, or swiping and choosing "Editar", opens the prefilled form and calls `updateWish` on save.
-6. Swiping and choosing "Remover" asks for confirmation and calls `removeWish`.
+4. On save, the app validates the fields, normalizes the link and runs the add transaction (section 13.3.5). On success, it dismisses the sheet, refreshes the list and VoiceOver announces "Sugestão salva".
+5. Tapping a card, or swiping and choosing "Editar", opens the prefilled form and runs the edit transaction on save.
+6. Swiping and choosing "Remover" asks for confirmation and runs the remove transaction.
 7. With 5 suggestions, the add button is replaced by the limit message.
 
 **On the website**
@@ -425,8 +425,7 @@ sequenceDiagram
 
 **Error paths**
 
-- Invalid field: message below the field, without calling the server.
-- The server rejects a field (`INVALID_WISH` with `details.field`): the message appears on that field.
+- Invalid field: message below the field, without any request.
 - `WISH_LIMIT_REACHED` (two tabs at the same time, for example): limit message and list reload.
 - `WISH_NOT_FOUND` when editing: "Esta sugestão não existe mais." and list reload.
 - Removing a suggestion that no longer exists: treated as success.
@@ -442,16 +441,17 @@ sequenceDiagram
 
 **Error paths**
 
-- No internet: the cache shows the last known list. Opening a group that depends on a Function shows the destination screen's connection error.
+- No internet: the cache shows the last known list. Opening a group that needs the network shows the destination screen's connection error.
+- A participant group that was deleted stays in the list until the app opens it (the link reports `LINK_NOT_FOUND` and the membership is deleted) or until the next daily cleanup.
 
 ### 4.10 Organizer recovery
 
 1. On the new iPhone, the organizer installs the app and opens the recovery link they saved.
 2. The `DeepLinkParser` returns `DeepLink.organizerRecovery(token)`.
-3. The `GroupCoordinator`, in recovery mode, calls `previewRecovery(token)`, which returns the group name and whether this device is already the organizer.
+3. The `GroupCoordinator`, in recovery mode, reads the recovery document (section 13.3.9), which gives the group name and whether this device is already the organizer.
 4. If it already is the organizer, it opens the status screen directly.
 5. If not, it shows the "Recuperar grupo?" alert, with the group name and the warning that the other device will lose access.
-6. On confirmation, it calls `claimGroup(token)`. The Function transfers administration and creates this device's membership.
+6. On confirmation, it writes the claim batch (section 13.3.10): it transfers administration, creates this device's membership and deletes the previous device's membership.
 7. The app pushes the status screen.
 
 **On the old device:** the membership is deleted, so the group disappears from the list. If the status screen is open, the listener receives a permission error; the screen shows "Este grupo agora é administrado em outro aparelho." and returns to the list.
@@ -465,12 +465,13 @@ sequenceDiagram
 
 1. On the status screen, the organizer opens "Opções do grupo" and chooses "Excluir grupo".
 2. A destructive alert confirms the action and warns that the links will stop working.
-3. The app calls `deleteGroup(groupId)`. The Function deletes the group, the subcollections, the tokens and the memberships on every device.
-4. The app returns to the list, where the group no longer appears.
+3. The app deletes the group's documents in batches (section 13.3.8): wish lists, assignments, link documents, participants, recovery token, its own membership and, last, the group.
+4. On participants' devices, the group leaves the list when the app next opens it or after the daily cleanup job (section 11.3).
+5. The app returns to the list, where the group no longer appears.
 
 **Error paths**
 
-- No internet: alert with "Tentar novamente". Nothing is deleted.
+- No internet: alert with "Tentar novamente". The deletion is retried from the start; documents already deleted are skipped.
 - The group no longer exists: treated as success.
 
 ---
@@ -806,7 +807,7 @@ There is no loading: the screen does not access the network.
 **Navigation**
 
 - "Ver meu sorteio" → screen 6 with the organizer's token (saved in the membership).
-- "Excluir grupo" → confirmation → `deleteGroup` → back to the list.
+- "Excluir grupo" → confirmation → group deletion (section 13.3.8) → back to the list.
 - Back → group list.
 
 **Accessibility:** each row grouped into one element labeled "Ana, link enviado"; the send button inside the row is no longer reachable, so the action is recreated in `accessibilityCustomActions` ("Enviar link para Ana"); the status does not depend only on the symbol (it is in the text); the menu labeled "Opções do grupo".
@@ -833,6 +834,7 @@ There is no loading: the screen does not access the network.
 |---|---|
 | Loading | `UIContentUnavailableConfiguration.loading()` |
 | Invalid link | `xmark.circle` symbol, title "Link inválido" and the BR-52 message |
+| Organizer's device, someone else's link | `eye.slash` symbol, title "Link de outra pessoa" and a message explaining that the organizer cannot open other participants' links on this iPhone (`ORGANIZER_LINK_BLOCKED`) |
 | Connection error | Message and "Tentar novamente" |
 | Success | Full content |
 
@@ -840,6 +842,8 @@ There is no loading: the screen does not access the network.
 
 | Key | pt-BR text |
 |---|---|
+| `groupAccess.organizerBlocked.title` | Link de outra pessoa |
+| `groupAccess.organizerBlocked.message` | Este link é de outro participante. Como você organiza este grupo, ele não abre neste iPhone para manter o sorteio secreto. |
 | `groupAccess.owner` | Este link é de %@. |
 | `groupAccess.ownerWarning` | Não é você? Não revele: o sorteio é secreto. |
 | `groupAccess.personalLink` | Este link é pessoal. Não encaminhe para ninguém. |
@@ -878,7 +882,7 @@ There is no loading: the screen does not access the network.
 |---|---|
 | Loading | `UIContentUnavailableConfiguration.loading()` |
 | No suggestions | Highlighted name and default message |
-| Error | Message and "Tentar novamente" (nothing is recorded without a server response) |
+| Error | Message and "Tentar novamente" (nothing is recorded unless the write is confirmed) |
 | Invalid link | Same as screen 6 |
 | Success | Name and cards |
 
@@ -961,7 +965,7 @@ There is no loading: the screen does not access the network.
 | Editing | Form |
 | Saving | "Salvar" with an indicator; fields disabled |
 | Validation error | Message on the field |
-| Server error | Alert with the reason message; the typed data is kept |
+| Write error | Alert with the reason message; the typed data is kept |
 
 **Localization keys**
 
@@ -996,7 +1000,7 @@ The website mirrors screens 6, 7, 8 and 8b in a single page (`access.html`) with
 |---|---|---|
 | Home | `/` | What Sortix is, App Store button, links to privacy and support |
 | Access | `/g/<token>` → `access.html` | Access section (screen 6), reveal section (screen 7) and "Minhas sugestões" section with the form (screens 8 and 8b) |
-| Recovery | `/r/<token>` → `recovery.html` | Explains that the link must be opened on the iPhone with the app and shows the App Store button. Calls no Function. |
+| Recovery | `/r/<token>` → `recovery.html` | Explains that the link must be opened on the iPhone with the app and shows the App Store button. Reads no data. |
 | Privacy | `/privacidade` | Privacy policy (section 17.4) |
 | Support | `/suporte` | FAQ and contact email |
 | Not found | `404.html` | Message and link to the home page |
@@ -1266,13 +1270,13 @@ private func handle(_ navigation: GroupListViewModel.Navigation) {
 }
 ```
 
-**Interactions with system controllers.** Share, contact picking and Safari are presented by the coordinator. The `Navigation` case carries a completion closure, for example `case share(ShareContent, onCompleted: @MainActor () -> Void)`. The coordinator presents the `UIActivityViewController` and calls `onCompleted` when sharing completes; the closure calls the ViewModel, which continues the flow (e.g. `markLinkShared`).
+**Interactions with system controllers.** Share, contact picking and Safari are presented by the coordinator. The `Navigation` case carries a completion closure, for example `case share(ShareContent, onCompleted: @MainActor () -> Void)`. The coordinator presents the `UIActivityViewController` and calls `onCompleted` when sharing completes; the closure calls the ViewModel, which continues the flow (e.g. marking the link as sent).
 
 **Why closures, and not delegates or Combine.** The relationship is always one to one, so a protocol per screen would just be repeated code. Combine would add a reactive framework with no gain at this app size. The extra care closures need is `[weak self]`, covered by the memory leak test (section 16.3).
 
 ### 6.5 Dependency injection and service protocols
 
-There are no singletons. The Firebase instances (`Auth.auth()`, `Firestore.firestore()`, `Functions.functions(region:)`) are obtained in a single place, `AppDependencies.live()`, and handed to the service implementations through their initializers.
+There are no singletons. The Firebase instances (`Auth.auth()`, `Firestore.firestore()`) are obtained in a single place, `AppDependencies.live()`, and handed to the service implementations through their initializers.
 
 ```swift
 struct AppDependencies {
@@ -1302,6 +1306,7 @@ protocol AuthServiceProtocol: Sendable {
 
 protocol MembershipServiceProtocol: Sendable {
     func observeMemberships() -> AsyncThrowingStream<[Membership], any Error>
+    func removeMembership(groupID: GroupID) async throws
 }
 
 protocol GroupServiceProtocol: Sendable {
@@ -1341,7 +1346,7 @@ protocol CrashReporterProtocol: Sendable {
 }
 ```
 
-The real implementations live in `Services/<Area>/Firebase<Area>Service.swift`. Functions are called through a generic `FunctionsClient`, which uses FirebaseFunctions' `Codable` API (`httpsCallable(_:requestAs:responseAs:)`) and converts errors with the `FirebaseErrorMapper`.
+The real implementations live in `Services/<Area>/Firebase<Area>Service.swift`. They read and write Firestore through `FirestorePaths` and the `Codable` DTOs (`Firestore.Encoder` and `Firestore.Decoder`), follow the operations in section 13.3 and convert errors with the `FirebaseErrorMapper`. Tokens and `expiresAt` come from the Domain (`AccessTokenGenerator`, `ExpiryCalculator`).
 
 ### 6.6 Concurrency
 
@@ -1359,12 +1364,12 @@ The real implementations live in `Services/<Area>/Firebase<Area>Service.swift`. 
 |---|---|---|
 | `ValidationError` | Domain (`GroupDraftValidator`, `WishValidator`) | `.empty`, `.tooLong(limit:)`, `.duplicated`, `.outOfRange`, `.dateInPast`, `.invalidLink`, `.invalidOrganizer`, `.invalidRestriction` |
 | `DrawFailure` | Domain (`DrawEngine`) | `.receiverWithoutGivers(ParticipantID)`, `.onlyMutualPairs` |
-| `ServiceError` | Services (`FirebaseErrorMapper`) | `.network`, `.unauthenticated`, `.linkNotFound`, `.permissionDenied`, `.rejected(FunctionErrorReason, field:)`, `.unknown` |
+| `ServiceError` | Services (`FirebaseErrorMapper`) | `.network`, `.unauthenticated`, `.linkNotFound`, `.organizerLinkBlocked`, `.notOrganizer`, `.groupNotFound`, `.wishLimitReached`, `.wishNotFound`, `.quotaExceeded`, `.unknown` |
 
-- The `FirebaseErrorMapper` converts `FunctionsErrorCode`, `FirestoreErrorCode` and `AuthErrorCode` into `ServiceError`. The Functions' `details.reason` field becomes the `FunctionErrorReason` enum, identical to the server's (section 13.2).
+- The `FirebaseErrorMapper` converts `FirestoreErrorCode` and `AuthErrorCode` into `ServiceError`, using the operation to tell what a `permission-denied` means (table in section 13.2). The website uses the same reason codes.
 - The ViewModel keeps the typed error in its state. Tests check the type, never the text.
-- The ViewController turns the error into text with the `ErrorMessageMapper`, which does an exhaustive `switch` and returns a `LocalizedStringResource` (`message(for:)`, plus `title(for:)` for the errors that have a title: no connection and invalid link). Until a screen needs a specific message, Function reasons fall back to the generic message. A new error without a message does not compile.
-- Unexpected errors (`.unknown`, `INVALID_ASSIGNMENT`) also go to Crashlytics as non-fatal, without names, tokens or suggestions in the context.
+- The ViewController turns the error into text with the `ErrorMessageMapper`, which does an exhaustive `switch` and returns a `LocalizedStringResource` (`message(for:)`, plus `title(for:)` for the errors that have a title: no connection and invalid link). Until a screen needs a specific message, reason codes fall back to the generic message. A new error without a message does not compile.
+- Unexpected errors (`.unknown`, a `permission-denied` during group creation) also go to Crashlytics as non-fatal, without names, tokens or suggestions in the context.
 
 ### 6.8 Memory and lifecycle
 
@@ -1418,14 +1423,14 @@ All texts below come from the String Catalog.
 
 - Logs with `os.Logger` through `AppLogger` (categories per area). Dynamic values always with `privacy: .private`.
 - `print` is forbidden.
-- Crashlytics records crashes and unexpected non-fatal errors. The context may contain only codes (`reason`, Function name, screen name), never names, tokens, suggestions or assignments.
+- Crashlytics records crashes and unexpected non-fatal errors. The context may contain only codes (`reason`, operation name, screen name), never names, tokens, suggestions or assignments.
 - dSYMs are uploaded by the Crashlytics script phase in the Release build.
 
 ---
 
 ## 7. Folder structure
 
-The repository is a monorepo with the app, the backend and the website.
+The repository is a monorepo with the app, the Firebase configuration (rules, indexes, cleanup job) and the website.
 
 ```text
 sortix/
@@ -1438,7 +1443,8 @@ sortix/
 │   └── images/                      ← screenshots for the README
 ├── shared/
 │   └── test-vectors/
-│       ├── normalization.json       ← read by the Swift and TypeScript tests
+│       ├── normalization.json       ← read by the Swift tests
+│       ├── grapheme-count.json      ← read by the Swift and website tests
 │       └── wish-validation.json
 ├── ios/
 │   ├── Sortix.xcodeproj
@@ -1461,7 +1467,7 @@ sortix/
 │   │   │   │   └── LinkBuilder.swift
 │   │   │   ├── Errors/
 │   │   │   │   ├── ServiceError.swift
-│   │   │   │   ├── FunctionErrorReason.swift
+│   │   │   │   ├── ServiceErrorReason.swift
 │   │   │   │   └── ErrorMessageMapper.swift
 │   │   │   └── Logging/
 │   │   │       └── AppLogger.swift
@@ -1482,8 +1488,11 @@ sortix/
 │   │   │   │   ├── WishValidator.swift
 │   │   │   │   ├── NameNormalizer.swift
 │   │   │   │   └── LinkNormalizer.swift
-│   │   │   └── Input/
-│   │   │       └── CurrencyInputParser.swift
+│   │   │   ├── Input/
+│   │   │   │   └── CurrencyInputParser.swift
+│   │   │   └── Group/
+│   │   │       ├── AccessTokenGenerator.swift
+│   │   │       └── ExpiryCalculator.swift
 │   │   ├── Models/
 │   │   │   ├── GroupID.swift
 │   │   │   ├── ParticipantID.swift
@@ -1525,8 +1534,7 @@ sortix/
 │   │   │   │   ├── CrashReporterProtocol.swift
 │   │   │   │   └── CrashlyticsReporter.swift
 │   │   │   └── Firebase/
-│   │   │       ├── FunctionsClient.swift
-│   │   │       ├── FunctionName.swift
+│   │   │       ├── FirestorePaths.swift
 │   │   │       ├── FirebaseErrorMapper.swift
 │   │   │       └── DTOs/
 │   │   ├── Features/
@@ -1592,6 +1600,9 @@ sortix/
 │       │   ├── Draw/
 │       │   │   ├── DrawEngineTests.swift
 │       │   │   └── AssignmentValidatorTests.swift
+│       │   ├── Group/
+│       │   │   ├── AccessTokenGeneratorTests.swift
+│       │   │   └── ExpiryCalculatorTests.swift
 │       │   └── Validation/
 │       │       ├── GroupDraftValidatorTests.swift
 │       │       ├── WishValidatorTests.swift
@@ -1615,44 +1626,23 @@ sortix/
 │           ├── SeededRandomNumberGenerator.swift
 │           ├── TestVectors.swift
 │           └── MemoryLeakTracking.swift
+├── .github/
+│   └── workflows/
+│       ├── cleanup.yml              ← daily cleanup job (section 11.3)
+│       └── checks.yml               ← rules tests and website tests
 ├── backend/
 │   ├── firestore.rules
 │   ├── firestore.indexes.json
-│   └── functions/
+│   ├── rules-tests/                 ← @firebase/rules-unit-testing + Vitest on the emulator
+│   │   ├── package.json
+│   │   └── firestore.rules.test.ts
+│   └── cleanup/                     ← Node.js + Firebase Admin SDK, run by GitHub Actions
 │       ├── package.json
 │       ├── tsconfig.json
-│       ├── vitest.config.ts
-│       ├── eslint.config.js
 │       └── src/
 │           ├── index.ts
-│           ├── config.ts
-│           ├── handlers/
-│           │   ├── createGroup.ts
-│           │   ├── getGroupAccess.ts
-│           │   ├── getReveal.ts
-│           │   ├── getMyWishes.ts
-│           │   ├── addWish.ts
-│           │   ├── updateWish.ts
-│           │   ├── removeWish.ts
-│           │   ├── markLinkShared.ts
-│           │   ├── deleteGroup.ts
-│           │   ├── previewRecovery.ts
-│           │   └── claimGroup.ts
-│           ├── domain/
-│           │   ├── limits.ts
-│           │   ├── normalization.ts
-│           │   ├── validation.ts
-│           │   ├── assignmentValidator.ts
-│           │   ├── tokens.ts
-│           │   └── expiry.ts
-│           ├── data/
-│           │   ├── paths.ts
-│           │   ├── groupRepository.ts
-│           │   ├── tokenRepository.ts
-│           │   ├── wishRepository.ts
-│           │   └── membershipRepository.ts
-│           ├── errors.ts
-│           └── __tests__/
+│           ├── deleteExpired.ts
+│           └── deleteOrphanMemberships.ts
 └── web/
     ├── index.html
     ├── access.html
@@ -1664,11 +1654,17 @@ sortix/
     ├── css/styles.css
     ├── js/
     │   ├── access-page.js
-    │   ├── api.js
+    │   ├── firebase-config.js
+    │   ├── data.js               ← operations of section 13.3 (link, reveal, suggestions)
+    │   ├── paths.js
+    │   ├── errors.js
+    │   ├── limits.js
     │   ├── i18n.js
     │   ├── validation.js
     │   ├── render.js
     │   └── wishes.js
+    ├── tests/                    ← Vitest for validation.js and i18n.js (shared vectors)
+    ├── package.json              ← test tooling only; the website itself has no build step
     └── locales/
         └── pt-BR.json
 ```
@@ -1678,7 +1674,7 @@ sortix/
 - Each scene folder has `<Scene>View.swift`, `<Scene>ViewController.swift`, `<Scene>ViewModel.swift` and `<Scene>State.swift`. The `Navigation` enum is nested in the ViewModel.
 - One main type per file, with the file named after the type. Extensions follow `Type+Topic.swift`.
 - `GoogleService-Info.plist` stays out of Git, with a `GoogleService-Info.example.plist` and instructions in the README. The Firebase API key is not a secret, but restricting it to the bundle ID in the Google Cloud Console and not versioning it prevents misuse of the project by anyone who clones the repository.
-- `firebase.json` lives at the root and points to `backend/` (rules, indexes, Functions) and to `web/` (Hosting). Its full content is in section 14.4.
+- `firebase.json` lives at the root and points to `backend/` (rules and indexes) and to `web/` (Hosting). Its full content is in section 14.4.
 - Support files not shown in the summarized tree: `WebPage.swift` (website pages opened in the app, in `Core/DeepLinks`) and `ShareMessageBuilder.swift` (share texts, in the `GroupStatus` scene).
 
 ---
@@ -1688,7 +1684,7 @@ sortix/
 ### 8.1 Principles
 
 - No user-facing text in Swift, HTML or JavaScript code: titles, buttons, placeholders, alerts, errors and accessibility texts.
-- The server never returns user-facing text. It returns data and reason codes (`reason`), which the app and the website translate.
+- No user-facing text is stored in Firestore or returned by it. Errors become reason codes (`reason`), which the app and the website translate.
 - Dates, values, numbers and lists of names are formatted with the user's locale.
 - The project's development language (Development Region) and the String Catalog source language are `pt-BR`. That is the only place pt-BR is used: user-facing texts. Keys and translator comments are in English.
 
@@ -2024,7 +2020,7 @@ struct DrawEngine: Sendable {
 - `AllowedPairs` builds the allowed-pairs matrix.
 - `BipartiteMatcher` does the matching and the Hall witness.
 - `CycleCoverSearch` does the backtracking search.
-- `AssignmentValidator` checks a result. It is used by sampling, by the tests and mirrored in TypeScript on the server.
+- `AssignmentValidator` checks a result. It is used by the tests and by the `GroupService` right before writing (there is no server-side check). Sampling runs the same checks directly on list positions, because it may try 10,000 candidates.
 - The `DrawService` uses `SystemRandomNumberGenerator`, which on Apple platforms uses the system's cryptographically secure generator. Tests use `SeededRandomNumberGenerator` (SplitMix64) with a fixed seed.
 
 ### 10.5 Impossibility detection and messages
@@ -2053,9 +2049,9 @@ The names in the messages follow the order of the participant list and are joine
 
 In the prototype used to validate this document (Python, slower than Swift), 50 people without restrictions took about 1 ms and 50 people with 5 restrictions each took about 19 ms. The engine runs off the main thread regardless.
 
-### 10.7 Server-side validation
+### 10.7 Validation before writing
 
-The `createGroup` Function does not redo the draw. It checks the received result in O(n):
+There is no server code, and the security rules cannot check a whole permutation. The `AssignmentValidator` checks the result in O(n) right before the `GroupService` writes it:
 
 ```text
 function validateAssignment(participants, forbiddenGivers, assignments):
@@ -2092,7 +2088,7 @@ All expected results below were checked against a prototype of the algorithm bef
 | T15 | 7 people with restrictions and sampling turned off (`maxRejectionAttempts = 0`) | The search finds a valid result |
 | T16 | `maxSearchSteps = 1` on an input that requires search | `searchLimitReached` |
 
-`AssignmentValidator` tests (Swift and TypeScript): broken bijection (two *givers* for the same *receiver*), self-assignment, mutual pair, violated restriction, missing participant, extra participant and one valid case.
+`AssignmentValidator` tests (Swift): broken bijection (two *givers* for the same *receiver*), self-assignment, mutual pair, violated restriction, missing participant, extra participant and one valid case.
 
 ---
 
@@ -2100,21 +2096,25 @@ All expected results below were checked against a prototype of the algorithm bef
 
 ### 11.1 Overview
 
+There is no server code. The app and the website read and write Firestore directly with the Firebase client SDKs, and the security rules (section 12) decide what each request may do. The project stays on the free Spark plan.
+
 ```text
 groups/{groupId}
   participants/{participantId}
-    wishes/{wishId}
-  assignments/{giverId}
+  wishLists/{participantId}
 tokens/{token}
+assignments/{token}
 recoveryTokens/{token}
 users/{uid}
   memberships/{groupId}
 ```
 
-- Group, participant and suggestion IDs are lowercase UUID v4. Group and participant IDs are generated in the app (idempotency); suggestion IDs, in the Function.
-- Tokens are the document ID itself in `tokens` and `recoveryTokens`, which makes lookup a direct read.
-- Every document has `expiresAt` (TTL), copied from the group.
-- The app only **reads** `users/{uid}/memberships`, `groups/{groupId}` and `groups/{groupId}/participants`, and only when it is the organizer (for the group). **Every write is done by the Functions.**
+- Group, participant and suggestion IDs are lowercase UUID v4, generated on the device (the app or the website).
+- Access and recovery tokens are generated on the organizer's iPhone (BR-27, BR-45) and are the document ID itself in `tokens`, `assignments` and `recoveryTokens`. **Knowing the token is the permission:** the rules allow `get` on these documents but never `list`, so nobody can enumerate them.
+- Writes that need to prove possession of a token go in a transaction or batch that also touches `tokens/{token}` (fields `revealedAt` or `wishesUpdatedAt`). The rules on the other document check, with `getAfter()`, that the token document was touched in the same request.
+- The organizer is trusted (the group is made of friends and family). The rules protect against accidental peeking: the organizer's device cannot open another participant's link, result or suggestions through the app. They do not try to stop a determined organizer, who already holds every link, from opening one in a browser.
+- Every document has `expiresAt`, copied from the group. Expired documents are treated as nonexistent by the app and the website, and are deleted by the daily cleanup job (section 11.3).
+- Documents written while the group is being created carry `creatorUid`, the organizer's UID at creation. Rules use it to accept an identical rewrite when the creation is retried (BR-26).
 
 Sample values in the examples (group names, people names, suggestions) are user data and appear in pt-BR.
 
@@ -2122,27 +2122,31 @@ Sample values in the examples (group names, people names, suggestions) are user 
 
 #### `groups/{groupId}`
 
-Write: Functions. Read: the organizer.
+Write: the organizer (creation, recovery, deletion). Read: the organizer.
 
 | Field | Type | Required | Description |
 |---|---|---|---|
 | `schemaVersion` | number | yes | Schema version (1) |
 | `name` | string | yes | Group name |
-| `organizerUid` | string | yes | Current organizer's anonymous UID |
+| `creatorUid` | string | yes | UID that created the group (never changes) |
+| `organizerUid` | string | yes | Current organizer's anonymous UID (changes on recovery) |
+| `recoveryToken` | string | yes | Recovery token, used by the rules to validate a recovery |
 | `rules.maxGiftValue.amountMinor` | number (integer) | no | Amount in cents |
 | `rules.maxGiftValue.currencyCode` | string | no | ISO 4217 (`BRL`) |
 | `rules.eventDate` | string | no | `YYYY-MM-DD` |
 | `rules.location` | string | no | Location |
 | `rules.notes` | string | no | Notes |
 | `participantCount` | number | yes | Total, including the organizer |
-| `createdAt` | timestamp | yes | Creation date (server) |
-| `expiresAt` | timestamp | yes | TTL |
+| `createdAt` | timestamp | yes | Creation date (server timestamp) |
+| `expiresAt` | timestamp | yes | Expiration (BR-51) |
 
 ```json
 {
   "schemaVersion": 1,
   "name": "Família 2026",
+  "creatorUid": "kP3xQ9vLm2TzR8wYb4NcHd7sJ1fA",
   "organizerUid": "kP3xQ9vLm2TzR8wYb4NcHd7sJ1fA",
+  "recoveryToken": "_LaQVgaRjkOmnas_me_rUsMGKgwgRTu5cXqikL_vN6s",
   "rules": {
     "maxGiftValue": { "amountMinor": 10000, "currencyCode": "BRL" },
     "eventDate": "2026-12-24",
@@ -2159,7 +2163,7 @@ In the examples, `timestamp` values appear as ISO 8601 text for readability; in 
 
 #### `groups/{groupId}/participants/{participantId}`
 
-Write: Functions. Read: the organizer (with an `organizerUid == uid` filter in the query).
+Write: the organizer (creation, `linkSharedAt`, deletion); the link holder writes only `revealedAt`, with token proof. Read: the organizer.
 
 | Field | Type | Required | Description |
 |---|---|---|---|
@@ -2168,10 +2172,10 @@ Write: Functions. Read: the organizer (with an `organizerUid == uid` filter in t
 | `isOrganizer` | boolean | yes | True only for the organizer |
 | `token` | string | yes | Access token (the organizer needs it to send the link) |
 | `forbiddenGiverIds` | array of string | yes | Who cannot draw this person (may be empty) |
-| `organizerUid` | string | yes | Copy of `groups.organizerUid`, used by the security rules |
+| `creatorUid` | string | yes | Copy of `groups.creatorUid`. The status query filters on it, so documents written by anyone else are ignored |
 | `linkSharedAt` | timestamp or null | yes | Last completed send |
 | `revealedAt` | timestamp or null | yes | First reveal |
-| `expiresAt` | timestamp | yes | TTL |
+| `expiresAt` | timestamp | yes | Expiration |
 
 ```json
 {
@@ -2180,88 +2184,150 @@ Write: Functions. Read: the organizer (with an `organizerUid == uid` filter in t
   "isOrganizer": false,
   "token": "rwObu2GdEBsa046FfMyoaKA1lU6Q8Qh9Wt4P86hynNE",
   "forbiddenGiverIds": ["e34554b3-faa1-4090-97e5-bd1390f9d3cc"],
-  "organizerUid": "kP3xQ9vLm2TzR8wYb4NcHd7sJ1fA",
+  "creatorUid": "kP3xQ9vLm2TzR8wYb4NcHd7sJ1fA",
   "linkSharedAt": "2026-11-20T21:20:41Z",
   "revealedAt": null,
   "expiresAt": "2027-02-22T00:00:00Z"
 }
 ```
 
-#### `groups/{groupId}/participants/{participantId}/wishes/{wishId}`
+#### `groups/{groupId}/wishLists/{participantId}`
 
-Write and read: Functions only.
+One document per participant with all of their suggestions (at most 5), created on the first save. Write: the link holder, with token proof. Read: anyone signed in who knows the path, through `get` only. The giver learns the path from their assignment (`receiverId`); the owner, from their link document.
 
 | Field | Type | Required | Description |
 |---|---|---|---|
-| `description` | string | yes | 1 to 100 characters |
-| `size` | string | no | Up to 20 |
-| `color` | string | no | Up to 30 |
-| `notes` | string | no | Up to 280 |
-| `link` | string | no | Normalized `http` or `https` URL, up to 2,000 |
-| `createdAt` | timestamp | yes | List ordering |
-| `updatedAt` | timestamp | yes | Last edit |
-| `expiresAt` | timestamp | yes | TTL |
+| `wishes` | map of `wishId` → suggestion | yes | Up to 5 entries |
+| `wishes.<id>.description` | string | yes | 1 to 100 characters |
+| `wishes.<id>.size` | string | no | Up to 20 |
+| `wishes.<id>.color` | string | no | Up to 30 |
+| `wishes.<id>.notes` | string | no | Up to 280 |
+| `wishes.<id>.link` | string | no | Normalized `http` or `https` URL, up to 2,000 |
+| `wishes.<id>.createdAt` | timestamp | yes | List ordering |
+| `wishes.<id>.updatedAt` | timestamp | yes | Last edit |
+| `updatedAt` | timestamp | yes | Last change to the list (server timestamp) |
+| `expiresAt` | timestamp | yes | Copy of the link document's `expiresAt` |
 
-Empty optional fields are not written.
+Empty optional fields are not written. Clients sort the entries by `createdAt`.
 
 ```json
 {
-  "description": "Tênis de corrida",
-  "size": "40",
-  "color": "Azul",
-  "link": "https://www.example.com/produtos/tenis-123",
-  "createdAt": "2026-11-21T10:02:11Z",
+  "wishes": {
+    "0d6c1c8e-6c1b-4a8e-9a39-0c1f3a1d6b55": {
+      "description": "Tênis de corrida",
+      "size": "40",
+      "color": "Azul",
+      "link": "https://www.example.com/produtos/tenis-123",
+      "createdAt": "2026-11-21T10:02:11Z",
+      "updatedAt": "2026-11-21T10:02:11Z"
+    }
+  },
   "updatedAt": "2026-11-21T10:02:11Z",
-  "expiresAt": "2027-02-22T00:00:00Z"
-}
-```
-
-#### `groups/{groupId}/assignments/{giverId}`
-
-Write and read: Functions only. No client reads this collection.
-
-| Field | Type | Description |
-|---|---|---|
-| `receiverId` | string | Who `giverId` drew |
-| `expiresAt` | timestamp | TTL |
-
-```json
-{
-  "receiverId": "b7f86cc5-6d89-42ad-abb1-5f1cd2f21746",
   "expiresAt": "2027-02-22T00:00:00Z"
 }
 ```
 
 #### `tokens/{token}`
 
-Write and read: Functions only.
+The participant's link document. It holds everything the access screen shows, so opening a link is a single read. The group does not change after the draw (BR-07), so the copies never go stale.
+
+Write: the organizer at creation; any signed-in client that knows the token may set `revealedAt` (once) and `wishesUpdatedAt`. Read: `get` by anyone signed in, except the organizer's device for someone else's link.
+
+| Field | Type | Description |
+|---|---|---|
+| `groupId` | string | Group |
+| `participantId` | string | Link owner |
+| `participantName` | string | Link owner's name |
+| `isOrganizer` | boolean | Whether the link owner is the organizer |
+| `groupName` | string | Copy of the group name |
+| `rules` | map | Copy of the group rules |
+| `participantCount` | number | Copy of the count |
+| `revealedAt` | timestamp or null | First reveal |
+| `wishesUpdatedAt` | timestamp or null | Token proof for suggestion writes |
+| `creatorUid` | string | Organizer's UID at creation |
+| `expiresAt` | timestamp | Expiration |
 
 ```json
 {
   "groupId": "1fb36df6-9b66-4f1d-a487-327393ffc44d",
   "participantId": "b7f86cc5-6d89-42ad-abb1-5f1cd2f21746",
+  "participantName": "Mãe",
+  "isOrganizer": false,
+  "groupName": "Família 2026",
+  "rules": {
+    "maxGiftValue": { "amountMinor": 10000, "currencyCode": "BRL" },
+    "eventDate": "2026-12-24",
+    "location": "Casa da vó"
+  },
+  "participantCount": 6,
+  "revealedAt": null,
+  "wishesUpdatedAt": null,
+  "creatorUid": "kP3xQ9vLm2TzR8wYb4NcHd7sJ1fA",
+  "expiresAt": "2027-02-22T00:00:00Z"
+}
+```
+
+#### `assignments/{token}`
+
+The draw result for one giver, keyed by the giver's access token. It is a separate document so that opening the link does not download the result; it is read only when "Revelar" is tapped.
+
+Write: the organizer at creation. Read: `get` by anyone signed in, except the organizer's device for someone else's result.
+
+| Field | Type | Description |
+|---|---|---|
+| `groupId` | string | Group |
+| `isOrganizer` | boolean | Whether the giver is the organizer |
+| `receiverId` | string | Who the giver drew (path of the receiver's `wishLists` document) |
+| `receiverName` | string | Name of who the giver drew |
+| `creatorUid` | string | Organizer's UID at creation |
+| `expiresAt` | timestamp | Expiration |
+
+```json
+{
+  "groupId": "1fb36df6-9b66-4f1d-a487-327393ffc44d",
+  "isOrganizer": false,
+  "receiverId": "e34554b3-faa1-4090-97e5-bd1390f9d3cc",
+  "receiverName": "Bruno",
+  "creatorUid": "kP3xQ9vLm2TzR8wYb4NcHd7sJ1fA",
   "expiresAt": "2027-02-22T00:00:00Z"
 }
 ```
 
 #### `recoveryTokens/{token}`
 
-Write and read: Functions only.
+Write: the organizer at creation; the device that recovers the group changes `organizerUid`. Read: `get` by anyone signed in who knows the token.
+
+| Field | Type | Description |
+|---|---|---|
+| `groupId` | string | Group |
+| `groupName` | string | Shown in the "Recuperar grupo?" confirmation |
+| `eventDate` | string or null | Copy of the date (for the new membership) |
+| `participantCount` | number | Copy of the count (for the new membership) |
+| `organizerUid` | string | Current organizer's UID |
+| `organizerToken` | string | Organizer's own access token (for the new membership) |
+| `creatorUid` | string | Organizer's UID at creation |
+| `expiresAt` | timestamp | Expiration |
 
 ```json
 {
   "groupId": "1fb36df6-9b66-4f1d-a487-327393ffc44d",
+  "groupName": "Família 2026",
+  "eventDate": "2026-12-24",
+  "participantCount": 6,
+  "organizerUid": "kP3xQ9vLm2TzR8wYb4NcHd7sJ1fA",
+  "organizerToken": "bTIOQYiOg-HhSBy5E6Abjm5hw9yqVtr6AzGvTSOmfoo",
+  "creatorUid": "kP3xQ9vLm2TzR8wYb4NcHd7sJ1fA",
   "expiresAt": "2027-02-22T00:00:00Z"
 }
 ```
 
 #### `users/{uid}/memberships/{groupId}`
 
-Write: Functions. Read: the UID's owner.
+Write and read: the UID's owner. The device that recovers a group also deletes the previous organizer's entry. The website does not create memberships.
 
 | Field | Type | Required | Description |
 |---|---|---|---|
-| `groupId` | string | yes | Repeated in the document for the collection group query used on deletion |
+| `groupId` | string | yes | Repeated in the document for the cleanup job's collection group query |
 | `role` | string | yes | `organizer` or `participant` |
 | `groupName` | string | yes | Copy of the name (the group does not change in v1) |
 | `eventDate` | string or null | yes | Copy of the date |
@@ -2269,7 +2335,7 @@ Write: Functions. Read: the UID's owner.
 | `participantToken` | string | yes | This device's access token in the group |
 | `recoveryToken` | string | organizer only | Recovery token |
 | `joinedAt` | timestamp | yes | List ordering |
-| `expiresAt` | timestamp | yes | TTL |
+| `expiresAt` | timestamp | yes | Expiration |
 
 ```json
 {
@@ -2285,18 +2351,16 @@ Write: Functions. Read: the UID's owner.
 }
 ```
 
-### 11.3 Automatic expiration (TTL)
+### 11.3 Expiration and the daily cleanup job
 
-One TTL policy on the `expiresAt` field for each collection group. The policy deletes documents, not subcollections, which is why every document carries the field.
+Firestore's TTL policies need billing enabled, so they are not available on the Spark plan. Expiration works in two layers instead:
 
-```bash
-for group in groups participants wishes assignments tokens recoveryTokens memberships; do
-  gcloud firestore fields ttls update expiresAt \
-    --collection-group="$group" --enable-ttl --project=sortix-amigo-secreto
-done
-```
+1. **Clients.** The app and the website treat any document with `expiresAt <= now` as nonexistent (BR-51). The app also hides expired memberships from the list and deletes them.
+2. **Daily cleanup job.** A GitHub Actions workflow (`.github/workflows/cleanup.yml`, scheduled once a day at 06:00 UTC and runnable by hand) runs `backend/cleanup/`, a small Node.js script with the Firebase Admin SDK. Admin SDK access is plain Firestore API usage, so it works on Spark and counts against the same free quota. The job:
+   - runs a collection group query `where("expiresAt", "<=", now)` on `groups`, `participants`, `wishLists`, `tokens`, `assignments`, `recoveryTokens` and `memberships`, and deletes the results with a `BulkWriter`;
+   - reads the `memberships` collection group, checks which `groupId` values no longer have a group document, and deletes those memberships (this is what removes a deleted group from participants' lists on other devices).
 
-TTL deletion is not immediate. That is why every Function checks `expiresAt` and treats an expired document as nonexistent (BR-51). The security rules do the same for the app's reads.
+The workflow authenticates to Google Cloud with Workload Identity Federation (`google-github-actions/auth`), with no service account key stored in GitHub. The service account has only the `roles/datastore.user` role. The job logs only counts, never IDs, tokens or names (BR-55). If a run fails, GitHub emails the repository owner; the next run catches up.
 
 ### 11.4 Indexes
 
@@ -2313,31 +2377,42 @@ TTL deletion is not immediate. That is why every Function checks `expiresAt` and
         { "order": "ASCENDING", "queryScope": "COLLECTION" },
         { "order": "ASCENDING", "queryScope": "COLLECTION_GROUP" }
       ]
-    }
+    },
+    { "collectionGroup": "groups", "fieldPath": "expiresAt", "indexes": [{ "order": "ASCENDING", "queryScope": "COLLECTION_GROUP" }] },
+    { "collectionGroup": "participants", "fieldPath": "expiresAt", "indexes": [{ "order": "ASCENDING", "queryScope": "COLLECTION_GROUP" }] },
+    { "collectionGroup": "wishLists", "fieldPath": "expiresAt", "indexes": [{ "order": "ASCENDING", "queryScope": "COLLECTION_GROUP" }] },
+    { "collectionGroup": "tokens", "fieldPath": "expiresAt", "indexes": [{ "order": "ASCENDING", "queryScope": "COLLECTION_GROUP" }] },
+    { "collectionGroup": "assignments", "fieldPath": "expiresAt", "indexes": [{ "order": "ASCENDING", "queryScope": "COLLECTION_GROUP" }] },
+    { "collectionGroup": "recoveryTokens", "fieldPath": "expiresAt", "indexes": [{ "order": "ASCENDING", "queryScope": "COLLECTION_GROUP" }] },
+    { "collectionGroup": "memberships", "fieldPath": "expiresAt", "indexes": [{ "order": "ASCENDING", "queryScope": "COLLECTION_GROUP" }] }
   ]
 }
 ```
 
-- The collection group query on `memberships` by `groupId` is used by `deleteGroup` to delete the memberships on every device.
-- The other queries (participants by `organizerUid`, a user's memberships, suggestions by `createdAt`) use the automatic single-field indexes.
+- The collection group indexes on `expiresAt` and on `memberships.groupId` are used only by the cleanup job.
+- The app's queries (participants by `creatorUid`, a user's memberships) use the automatic single-field indexes.
 
 ### 11.5 Operations and estimated cost
 
 | Operation | Reads | Writes |
 |---|---|---|
-| `createGroup` with n participants | 1 | 3n + 3 |
-| `getGroupAccess` | 3 or 4 | 0 or 1 (membership) |
-| `getReveal` | 4 + up to 5 suggestions | 0 or 1 (`revealedAt`) |
-| `getMyWishes` | 2 + up to 5 | 0 |
-| `addWish`, `updateWish`, `removeWish` | 3 to 8 | 1 |
+| Create a group with n participants | 1 (+ 1 per rule access) | 3n + 3 |
+| Open a link (app or website) | 1 or 2 (link document + group check in the rules) | 0, or 1 in the app (membership) |
+| Reveal | 3 to 6 | 0 or 2 (`revealedAt` on the link and on the participant) |
+| Load own suggestions | 1 | 0 |
+| Add, edit or remove a suggestion | 2 to 4 | 2 (list + token proof) |
+| Mark a link as sent | 1 to 2 | 1 |
+| Delete a group with n participants | n + 3 | 4n + 3 deletes |
 
-A 10-person group consumes, over its lifetime, around 150 reads and 60 writes. Firestore's daily free quota (50 thousand reads and 20 thousand writes) supports hundreds of groups per day.
+Reads made by `get()` and `getAfter()` inside the rules are billed as reads. A 10-person group consumes, over its lifetime, around 150 reads and 60 writes. The Spark free quota (50 thousand reads, 20 thousand writes and 20 thousand deletes per day, 1 GiB stored) supports hundreds of groups per day. On Spark, going over the daily quota does not generate a bill: Firestore refuses requests until the quota resets (around midnight Pacific time). The app and the website show the generic error in that case.
 
 ---
 
 ## 12. Firestore security rules
 
 ### 12.1 Draft (`backend/firestore.rules`)
+
+The rules are now the only server-side protection, so this file is code like any other: it has tests (section 12.3) and changes together with the data model.
 
 ```text
 rules_version = '2';
@@ -2349,45 +2424,194 @@ service cloud.firestore {
       return request.auth != null;
     }
 
-    function isNotExpired(data) {
-      return data.expiresAt > request.time;
+    function uid() {
+      return request.auth.uid;
     }
 
-    match /users/{uid}/memberships/{groupId} {
-      allow read: if isSignedIn()
-        && request.auth.uid == uid
-        && isNotExpired(resource.data);
-      allow write: if false;
+    function groupPath(groupId) {
+      return /databases/$(database)/documents/groups/$(groupId);
+    }
+
+    function tokenPath(token) {
+      return /databases/$(database)/documents/tokens/$(token);
+    }
+
+    function changedOnly(keys) {
+      return request.resource.data.diff(resource.data).affectedKeys().hasOnly(keys);
+    }
+
+    // Creation retries rewrite the same data (BR-26).
+    function isIdenticalRewriteByCreator() {
+      return resource.data.creatorUid == uid() && request.resource.data == resource.data;
+    }
+
+    function isOrganizerOf(groupId) {
+      return get(groupPath(groupId)).data.organizerUid == uid();
+    }
+
+    // Accidental-peek guard: the organizer's device opens only the organizer's own link and result.
+    function isNotPeekingOrganizer(data) {
+      return data.isOrganizer
+        || !exists(groupPath(data.groupId))
+        || get(groupPath(data.groupId)).data.organizerUid != uid();
+    }
+
+    function isValidExpiry(value) {
+      return value is timestamp
+        && value > request.time
+        && value < request.time + duration.value(730, 'd');
+    }
+
+    function isValidWish(wish) {
+      return wish is map
+        && wish.keys().hasAll(['description', 'createdAt', 'updatedAt'])
+        && wish.keys().hasOnly(['description', 'size', 'color', 'notes', 'link', 'createdAt', 'updatedAt'])
+        && wish.description is string && wish.description.size() > 0
+        && (!('link' in wish) || wish.link.matches('^https?://.+'));
+    }
+
+    function isValidWishAt(wishes, index) {
+      return wishes.size() <= index || isValidWish(wishes[index]);
+    }
+
+    function isValidWishMap(wishes) {
+      return wishes is map
+        && wishes.size() <= 5
+        && isValidWishAt(wishes.values(), 0)
+        && isValidWishAt(wishes.values(), 1)
+        && isValidWishAt(wishes.values(), 2)
+        && isValidWishAt(wishes.values(), 3)
+        && isValidWishAt(wishes.values(), 4);
+    }
+
+    // Token proof: the same request also touched tokens/{token}.wishesUpdatedAt.
+    function isWishListOwner(groupId, participantId) {
+      let token = get(/databases/$(database)/documents/groups/$(groupId)/participants/$(participantId)).data.token;
+      let link = getAfter(tokenPath(token)).data;
+      return link.wishesUpdatedAt == request.time
+        && request.resource.data.expiresAt == link.expiresAt;
     }
 
     match /groups/{groupId} {
-      allow get: if isSignedIn()
-        && resource.data.organizerUid == request.auth.uid
-        && isNotExpired(resource.data);
-      allow list, write: if false;
+      allow get: if isSignedIn() && resource.data.organizerUid == uid();
+      allow list: if false;
+      allow create: if isSignedIn()
+        && request.resource.data.creatorUid == uid()
+        && request.resource.data.organizerUid == uid()
+        && request.resource.data.participantCount is int
+        && request.resource.data.participantCount >= 3
+        && request.resource.data.participantCount <= 50
+        && request.resource.data.createdAt == request.time
+        && isValidExpiry(request.resource.data.expiresAt);
+      // Recovery (BR-47): the same batch must hand the recovery token to the caller.
+      allow update: if isSignedIn()
+        && changedOnly(['organizerUid'])
+        && request.resource.data.organizerUid == uid()
+        && getAfter(/databases/$(database)/documents/recoveryTokens/$(resource.data.recoveryToken)).data.organizerUid == uid();
+      allow delete: if isSignedIn() && resource.data.organizerUid == uid();
 
       match /participants/{participantId} {
-        allow read: if isSignedIn()
-          && resource.data.organizerUid == request.auth.uid
-          && isNotExpired(resource.data);
-        allow write: if false;
-
-        match /wishes/{wishId} {
-          allow read, write: if false;
-        }
+        allow read: if isSignedIn() && isOrganizerOf(groupId);
+        allow create: if isSignedIn()
+          && request.resource.data.creatorUid == uid()
+          && request.resource.data.linkSharedAt == null
+          && request.resource.data.revealedAt == null
+          && isValidExpiry(request.resource.data.expiresAt);
+        allow update: if isSignedIn() && (
+          isIdenticalRewriteByCreator()
+          || (isOrganizerOf(groupId)
+              && !resource.data.isOrganizer
+              && changedOnly(['linkSharedAt'])
+              && request.resource.data.linkSharedAt == request.time)
+          || (changedOnly(['revealedAt'])
+              && resource.data.revealedAt == null
+              && request.resource.data.revealedAt == request.time
+              && getAfter(tokenPath(resource.data.token)).data.revealedAt == request.time)
+        );
+        allow delete: if isSignedIn() && isOrganizerOf(groupId);
       }
 
-      match /assignments/{giverId} {
-        allow read, write: if false;
+      match /wishLists/{participantId} {
+        allow get: if isSignedIn();
+        allow list: if false;
+        allow create, update: if isSignedIn()
+          && request.resource.data.keys().hasOnly(['wishes', 'updatedAt', 'expiresAt'])
+          && request.resource.data.updatedAt == request.time
+          && isValidWishMap(request.resource.data.wishes)
+          && isWishListOwner(groupId, participantId);
+        allow delete: if isSignedIn() && isOrganizerOf(groupId);
       }
     }
 
     match /tokens/{token} {
-      allow read, write: if false;
+      allow get: if isSignedIn()
+        && (resource == null || isNotPeekingOrganizer(resource.data));
+      allow list: if false;
+      allow create: if isSignedIn()
+        && request.resource.data.creatorUid == uid()
+        && request.resource.data.revealedAt == null
+        && request.resource.data.wishesUpdatedAt == null
+        && isValidExpiry(request.resource.data.expiresAt);
+      // Knowing the token path is the proof of holding the link.
+      allow update: if isSignedIn() && (
+        isIdenticalRewriteByCreator()
+        || (changedOnly(['revealedAt'])
+            && resource.data.revealedAt == null
+            && request.resource.data.revealedAt == request.time)
+        || (changedOnly(['wishesUpdatedAt'])
+            && request.resource.data.wishesUpdatedAt == request.time)
+      );
+      allow delete: if isSignedIn()
+        && (resource == null || isOrganizerOf(resource.data.groupId) || resource.data.creatorUid == uid());
+    }
+
+    match /assignments/{token} {
+      allow get: if isSignedIn()
+        && (resource == null || isNotPeekingOrganizer(resource.data));
+      allow list: if false;
+      allow create: if isSignedIn()
+        && request.resource.data.creatorUid == uid()
+        && isValidExpiry(request.resource.data.expiresAt);
+      allow update: if isSignedIn() && isIdenticalRewriteByCreator();
+      allow delete: if isSignedIn()
+        && (resource == null || isOrganizerOf(resource.data.groupId) || resource.data.creatorUid == uid());
     }
 
     match /recoveryTokens/{token} {
-      allow read, write: if false;
+      allow get: if isSignedIn();
+      allow list: if false;
+      allow create: if isSignedIn()
+        && request.resource.data.creatorUid == uid()
+        && request.resource.data.organizerUid == uid()
+        && isValidExpiry(request.resource.data.expiresAt);
+      allow update: if isSignedIn() && (
+        isIdenticalRewriteByCreator()
+        || (changedOnly(['organizerUid'])
+            && request.resource.data.organizerUid == uid()
+            && getAfter(groupPath(resource.data.groupId)).data.organizerUid == uid())
+      );
+      allow delete: if isSignedIn()
+        && (resource == null || resource.data.organizerUid == uid());
+    }
+
+    match /users/{userId}/memberships/{groupId} {
+      allow read: if isSignedIn() && uid() == userId;
+      allow create, update: if isSignedIn()
+        && uid() == userId
+        && request.resource.data.groupId == groupId
+        && (
+          (request.resource.data.role == 'organizer'
+            && getAfter(groupPath(groupId)).data.organizerUid == uid())
+          || (request.resource.data.role == 'participant'
+            && get(tokenPath(request.resource.data.participantToken)).data.groupId == groupId)
+        );
+      allow delete: if isSignedIn() && (
+        uid() == userId
+        // The previous organizer's entry, removed by the device that just recovered the group.
+        || resource == null
+        || (resource.data.role == 'organizer'
+            && getAfter(groupPath(groupId)).data.organizerUid == uid())
+      );
     }
   }
 }
@@ -2397,255 +2621,145 @@ service cloud.firestore {
 
 | Decision | Reason |
 |---|---|
-| No client writes | Every write goes through validation in the Functions. The rules stay simple and don't need to repeat size, count and format validations. |
-| `organizerUid` copied into each participant | Lets the organizer list participants without an extra `get()` call in the rules (which would cost one read per document). The app's query must filter by `organizerUid == uid`, otherwise Firestore rejects it. |
-| `assignments`, `wishes`, `tokens` and `recoveryTokens` closed | The draw result and the suggestions only come out through the Functions, with a token. The organizer cannot read the draw, not even through the SDK. |
-| `isNotExpired` | Expired documents disappear for the app before the TTL physically deletes them. |
+| No Cloud Functions | Keeps the project on the free Spark plan. The organizer is trusted, so validation of what the organizer writes can live in the app. |
+| Token as document ID, `get` only | Possession of the link is the permission, as before. Without `list`, nobody can discover tokens. Collection group queries are denied because no rule matches `{path=**}`. |
+| Token proof through `getAfter()` | Firestore cannot receive the token as a parameter. A write that touches `tokens/{token}` in the same request proves that the caller knows the token, and the rules on the other document check it. |
+| Assignment keyed by the giver's token | The giver reads their result with the token they already have. The organizer's device is refused (accidental-peek guard), except for the organizer's own result. |
+| Link data copied into `tokens/{token}` | Opening a link is a single `get`. The group does not change after the draw (BR-07). |
+| Peek guard on the organizer's UID | Stops the organizer from seeing someone else's link or result in the app by mistake. A link opened on another device is accepted: the group is made of people who trust each other, and the organizer already sends every link. |
+| `creatorUid` and identical rewrites | Group creation is retried with the same IDs and data (BR-26). Rules accept the rewrite only when nothing changes. |
+| Status query filtered by `creatorUid` | Anyone who knows the `groupId` could write stray participant documents with their own UID; the filter keeps them out of the organizer's screen. |
+| No length checks in the rules | Rules count characters differently from graphemes and cannot loop over lists. Exact limits are enforced by the app and the website with the shared vectors; the rules check structure, ownership, counts (participants, 5 suggestions) and the link scheme. A crafted client could store a longer text, which would only be shown to the group. |
+| No draw validation in the rules | The rules cannot check a whole permutation within their access-call limits. The app validates the result with `AssignmentValidator` before writing (BR-23). |
+| No expiration checks in the rules | Clients treat expired documents as nonexistent and the cleanup job deletes them within a day. This keeps `permission-denied` on a link meaning only one thing: the organizer's device tried to open someone else's link. |
+| `get()` calls kept low | A rule can make at most 10 document access calls, and a batch at most 20 in total. Creation documents need none; each delete needs at most two, so deletes go in batches of at most 10. |
 | Default rule | Everything not listed is denied. |
 
-### 12.3 Rules tests (prepared for after v1)
+### 12.3 Rules tests (v1)
 
-With `@firebase/rules-unit-testing` on the emulator:
+With `@firebase/rules-unit-testing` and Vitest on the Firestore emulator (`backend/rules-tests/`), run locally and in CI. The emulator does not need a paid plan.
 
 - The organizer reads their own group and its participants; another user does not.
-- Nobody reads `assignments`, `wishes`, `tokens` or `recoveryTokens`.
-- Nobody writes to any collection.
-- A user reads only their own memberships.
-- Expired documents are not read.
+- A user with the token reads `tokens/{token}` and `assignments/{token}`; nobody lists either collection.
+- The organizer's UID is refused another participant's link and result, and reads their own.
+- `revealedAt` can be set once, only together with the token document, and never changed again.
+- A wish list write is accepted only with the token proof; a sixth suggestion and a non-`http(s)` link are refused.
+- `linkSharedAt` is written only by the organizer and only on other participants.
+- Recovery: the batch that changes both `recoveryTokens` and the group is accepted; changing the group alone is refused.
+- A user reads and writes only their own memberships, and a participant membership needs a valid token.
+- Creating a 50-participant group (all batches) and deleting it stays within the access-call limits.
 
 ---
 
-## 13. Cloud Functions contracts
+## 13. Data access contracts
+
+Each operation below is implemented once in the app (`Services`) and, for participant operations, once in the website (`web/js/data.js`). Section 11 has the documents and section 12 the rules that enforce them.
 
 ### 13.1 Shared configuration
 
-- 2nd gen Cloud Functions, TypeScript, supported Node.js LTS (22 or later), region `southamerica-east1`.
-- All are *callable* (`onCall`).
-- App: `FirebaseFunctions` SDK with the `Codable` API.
-- Website: same origin, through Hosting rewrites at `/api/<name>` (no CORS). The body follows the *callable* protocol: `{"data": {...}}` on the way in, `{"result": {...}}` or `{"error": {...}}` on the way back.
-
-```ts
-import { setGlobalOptions } from "firebase-functions/v2";
-
-setGlobalOptions({
-  region: "southamerica-east1",
-  maxInstances: 10,
-  memory: "256MiB",
-  timeoutSeconds: 15,
-});
-```
-
-- Dates travel as ISO 8601 text (`"2026-11-20T21:14:03.000Z"`); `eventDate` as `"YYYY-MM-DD"`.
-- Every input is validated against a schema before any read. Unknown fields are rejected.
-- Logs never contain tokens, names, suggestions or assignments (BR-55). Errors are logged with the Function name and the `reason`.
-- App Check is left for v2. In v1, cost protection is `maxInstances`, the budget alert and the size limits.
-
-Example call from the website:
-
-```json
-{ "data": { "token": "rwObu2GdEBsa046FfMyoaKA1lU6Q8Qh9Wt4P86hynNE" } }
-```
-
-Successful `getGroupAccess` response:
-
-```json
-{
-  "result": {
-    "groupId": "1fb36df6-9b66-4f1d-a487-327393ffc44d",
-    "groupName": "Família 2026",
-    "rules": {
-      "maxGiftValue": { "amountMinor": 10000, "currencyCode": "BRL" },
-      "eventDate": "2026-12-24",
-      "location": "Casa da vó"
-    },
-    "participantName": "Mãe",
-    "isOrganizer": false,
-    "participantCount": 6,
-    "revealedAt": null
-  }
-}
-```
-
-Error response:
-
-```json
-{
-  "error": {
-    "status": "NOT_FOUND",
-    "message": "LINK_NOT_FOUND",
-    "details": { "reason": "LINK_NOT_FOUND" }
-  }
-}
-```
+- App: `FirebaseFirestore` and `FirebaseAuth` iOS SDKs. Documents are converted by `Codable` DTOs in `Services/Firebase/DTOs` (section 13.4).
+- Website: Firebase JS SDK (modular API, one pinned version), loaded as ES modules from `https://www.gstatic.com/firebasejs/<pinned version>/`: `firebase-app.js`, `firebase-auth.js` (`signInAnonymously`) and `firebase-firestore-lite.js` (`getDoc`, `runTransaction`, `serverTimestamp`; no real-time listeners, which the website does not need). The web config lives in `web/js/firebase-config.js`; the API key is public and restricted to the domain (section 14.4).
+- Both clients sign in anonymously before any read (`isSignedIn()` in the rules).
+- Server timestamps (`serverTimestamp()`) are used for every field the rules compare to `request.time`.
+- Logs never contain tokens, names, suggestions or assignments (BR-55).
+- App Check is left for v2. In v1, abuse protection is the token secrecy, the rules and the daily Spark quota.
 
 ### 13.2 Errors
 
-Every failure uses `HttpsError(code, reason, { reason, field? })`. The app and the website read `details.reason` (and `details.field` when present) and show the localized text.
+Clients turn Firestore results into reason codes, which the app (`ServiceErrorReason`) and the website (`web/js/errors.js`) translate. Firestore never returns user-facing text.
 
-| `reason` | Code | When |
+| `reason` | Detected by | When |
 |---|---|---|
-| `INVALID_REQUEST` | `invalid-argument` | Body outside the schema (wrong type, unknown field, array size) |
-| `INVALID_TOKEN` | `invalid-argument` | Token with an invalid format |
-| `LINK_NOT_FOUND` | `not-found` | Nonexistent token, deleted or expired group |
-| `INVALID_GROUP_NAME` | `invalid-argument` | BR-01 |
-| `INVALID_RULES` | `invalid-argument` | BR-02 to BR-05 (`field` says which) |
-| `INVALID_PARTICIPANTS` | `invalid-argument` | Count outside 3 to 50, repeated IDs, or organizer missing or duplicated |
-| `INVALID_PARTICIPANT_NAME` | `invalid-argument` | BR-09 (`field` carries the `participantId`) |
-| `DUPLICATED_PARTICIPANT_NAME` | `invalid-argument` | BR-10 (`field` carries the `participantId`) |
-| `INVALID_RESTRICTION` | `invalid-argument` | A restriction mentions a nonexistent participant or the person themselves |
-| `INVALID_ASSIGNMENT` | `invalid-argument` | The received draw does not pass the validator (section 10.7) |
-| `GROUP_ID_CONFLICT` | `already-exists` | The `groupId` already exists with another organizer |
-| `NOT_ORGANIZER` | `permission-denied` | The caller is not the group organizer |
-| `GROUP_NOT_FOUND` | `not-found` | Nonexistent or expired group (organizer functions) |
-| `INVALID_WISH` | `invalid-argument` | BR-38 and BR-39 (`field`: `description`, `size`, `color`, `notes` or `link`) |
-| `WISH_LIMIT_REACHED` | `failed-precondition` | There are already 5 suggestions |
-| `WISH_NOT_FOUND` | `not-found` | Nonexistent suggestion when editing |
-| — | `unauthenticated` | The Function requires anonymous sign-in and the call came without it |
+| `INVALID_TOKEN` | Client | Token with an invalid format (`^[A-Za-z0-9_-]{43}$`); no request is made |
+| `LINK_NOT_FOUND` | Client | The link document does not exist or has expired (deleted, expired or mistyped link) |
+| `ORGANIZER_LINK_BLOCKED` | Rules (`permission-denied` on `tokens` or `assignments`) | The organizer's device opened someone else's link |
+| `GROUP_NOT_FOUND` | Client | The organizer's group does not exist or has expired |
+| `NOT_ORGANIZER` | Rules (`permission-denied` on the group) | The device is no longer the organizer (recovered elsewhere) |
+| `WISH_LIMIT_REACHED` | Client, inside the transaction | There are already 5 suggestions |
+| `WISH_NOT_FOUND` | Client, inside the transaction | The suggestion being edited no longer exists |
+| `NETWORK` | SDK (`unavailable`, `deadline-exceeded`) | No internet or timeout |
+| `QUOTA_EXCEEDED` | SDK (`resource-exhausted`) | The Spark daily quota is used up; shown with the generic message |
+| `UNKNOWN` | Anything else | Recorded as a non-fatal error in Crashlytics, with the operation name only |
 
-### 13.3 Contracts
+### 13.3 Operations
 
-#### 13.3.1 `createGroup`
+Tokens are 32 bytes from a cryptographically secure generator (`SystemRandomNumberGenerator` in the app) in base64url without padding (43 characters).
 
-- **Called by:** app. **Authentication:** required (organizer).
-- **Input**
+#### 13.3.1 Create group (app, organizer)
 
-```ts
-type CreateGroupRequest = {
-  groupId: string;                      // lowercase UUID v4 created on the device (idempotency key)
-  name: string;
-  rules: GroupRules;
-  participants: Array<{
-    participantId: string;              // lowercase UUID v4 created on the device
-    name: string;
-    isOrganizer: boolean;
-    forbiddenGiverIds: string[];
-  }>;
-  assignments: Array<{ giverId: string; receiverId: string }>;
-};
-```
+1. Validate the draft (BR-01 to BR-17) and the draw with `AssignmentValidator` (BR-18 to BR-21).
+2. Generate one access token per participant, the recovery token and `expiresAt` (`ExpiryCalculator`: event date + 60 days at 00:00 UTC or, without a date, now + 120 days). The full request, with IDs and tokens, is kept in memory for retries.
+3. **Content batches** (up to 100 writes each): for each participant, `groups/{g}/participants/{p}`, `tokens/{token}` and `assignments/{token}`.
+4. **Commit batch:** `groups/{g}` (with `createdAt = serverTimestamp()`), `recoveryTokens/{token}` and `users/{uid}/memberships/{g}` (`role: organizer`). The group appears in the list only after this batch, and links are shared only after it.
+5. **Retry (BR-26):** steps 3 and 4 are repeated with the same request. Content documents are accepted as identical rewrites. Before repeating step 4, the app reads `groups/{g}`; if it exists with `organizerUid == uid`, the creation already succeeded.
+- **Output:** `CreatedGroup` with the participants' tokens and the recovery token, built from the request itself.
+- **Errors:** `NETWORK`, `UNKNOWN`.
 
-- **Validations:** BR-01 to BR-05 (the date cannot be earlier than yesterday in UTC, to tolerate time zones), BR-08 to BR-11 (exactly one organizer), BR-14 to BR-16 (restrictions), BR-18 to BR-21 through the `assignmentValidator`.
-- **Effects:** generates one token per participant and the recovery token (32 bytes from `crypto.randomBytes`, base64url); computes `expiresAt`; writes in one batch the group, the participants, the assignments, the tokens, the recovery token and the organizer's membership.
-- **Idempotency:** if the `groupId` already exists with the same `organizerUid`, returns the stored data without writing anything. If it exists with another organizer, `GROUP_ID_CONFLICT`.
-- **Output**
+#### 13.3.2 Open a link (app and website)
 
-```ts
-type CreateGroupResponse = {
-  groupId: string;
-  participants: Array<{ participantId: string; name: string; isOrganizer: boolean; token: string }>;
-  recoveryToken: string;
-  expiresAt: string;
-};
-```
+1. Validate the token format (`INVALID_TOKEN`).
+2. `get tokens/{token}`. Missing or expired: `LINK_NOT_FOUND`. `permission-denied`: `ORGANIZER_LINK_BLOCKED`.
+3. App only: if `users/{uid}/memberships/{groupId}` does not exist, create it with `role: participant`. An existing membership (organizer, or another link of the same group on this device) is not changed.
+- **Output** (`GroupAccess`): `groupId`, `participantId`, `groupName`, `rules`, `participantName`, `isOrganizer`, `participantCount`, `revealedAt`.
 
-- **Errors:** `unauthenticated`, `INVALID_REQUEST`, `INVALID_GROUP_NAME`, `INVALID_RULES`, `INVALID_PARTICIPANTS`, `INVALID_PARTICIPANT_NAME`, `DUPLICATED_PARTICIPANT_NAME`, `INVALID_RESTRICTION`, `INVALID_ASSIGNMENT`, `GROUP_ID_CONFLICT`.
+#### 13.3.3 Reveal (app and website, only when "Revelar" is tapped)
 
-#### 13.3.2 `getGroupAccess`
+1. In a transaction: read `tokens/{token}`; if `revealedAt` is empty, set `revealedAt = serverTimestamp()` on it and on `groups/{g}/participants/{p}`.
+2. `get assignments/{token}` for `receiverId` and `receiverName`.
+3. `get groups/{g}/wishLists/{receiverId}` (missing document: no suggestions yet).
+- **Output** (`RevealResult`): `receiverName`, `wishes` sorted by `createdAt`, `revealedAt` (the first one, never overwritten).
+- **Errors:** `LINK_NOT_FOUND`, `ORGANIZER_LINK_BLOCKED`, `NETWORK`.
 
-- **Called by:** app and website. **Authentication:** optional.
-- **Input:** `{ token: string }`
-- **Validations:** token format (`^[A-Za-z0-9_-]{43}$`); token, group and participant exist and are not expired.
-- **Effects:** read only. If the call is authenticated (app), creates `users/{uid}/memberships/{groupId}` with `role: participant` when it does not exist yet. An existing `organizer` membership is not changed.
-- **Output**
+#### 13.3.4 Load own suggestions (app and website)
 
-```ts
-type GroupAccessResponse = {
-  groupId: string;
-  groupName: string;
-  rules: GroupRules;
-  participantName: string;
-  isOrganizer: boolean;
-  participantCount: number;
-  revealedAt: string | null;
-};
-```
+`get groups/{g}/wishLists/{p}`, with `g` and `p` from the link document. Output: `wishes` sorted by `createdAt` (empty if the document does not exist).
 
-- **Errors:** `INVALID_TOKEN`, `LINK_NOT_FOUND`.
+#### 13.3.5 Add, edit or remove a suggestion (app and website)
 
-#### 13.3.3 `getReveal`
+All three use one transaction:
 
-- **Called by:** app and website, only when "Revelar" is tapped. **Authentication:** optional.
-- **Input:** `{ token: string }`
-- **Effects:** in a transaction, writes `revealedAt = now` on the participant if it is empty.
-- **Output**
+1. Read `groups/{g}/wishLists/{p}` (may not exist).
+2. Change the `wishes` map: **add** creates an entry with a new UUID, `createdAt` and `updatedAt` (fails with `WISH_LIMIT_REACHED` if there are already 5); **edit** replaces every field of the entry and sets `updatedAt` (fails with `WISH_NOT_FOUND` if it is gone); **remove** deletes the entry (nothing to do if it is gone, which counts as success).
+3. Write the list with `updatedAt = serverTimestamp()` and `expiresAt` copied from the link document, and set `tokens/{token}.wishesUpdatedAt = serverTimestamp()` (token proof).
+- Inputs are validated first with the same rules as the app (BR-38, BR-39): trimmed fields, empty optional fields dropped, link normalized and restricted to `http` and `https`.
+- **Output:** the updated list.
+- **Errors:** `WISH_LIMIT_REACHED`, `WISH_NOT_FOUND`, `LINK_NOT_FOUND`, `NETWORK`.
 
-```ts
-type RevealResponse = {
-  receiverName: string;
-  wishes: WishDTO[];          // sorted by createdAt
-  revealedAt: string;         // first reveal, never overwritten
-};
-```
+#### 13.3.6 Mark a link as sent (app, organizer)
 
-- **Errors:** `INVALID_TOKEN`, `LINK_NOT_FOUND`.
+`update groups/{g}/participants/{p}` with `linkSharedAt = serverTimestamp()`. Errors: `NOT_ORGANIZER`, `NETWORK`.
 
-#### 13.3.4 `getMyWishes`
+#### 13.3.7 Observe the group (app, organizer)
 
-- **Called by:** app and website. **Authentication:** optional.
-- **Input:** `{ token: string }`
-- **Output:** `{ wishes: WishDTO[] }`, sorted by `createdAt`.
-- **Errors:** `INVALID_TOKEN`, `LINK_NOT_FOUND`.
+Listener on `groups/{g}` plus a listener on `groups/{g}/participants` filtered by `creatorUid == group.creatorUid`. `permission-denied` on the group means `NOT_ORGANIZER` (flow 4.10); a missing or expired group means `GROUP_NOT_FOUND`.
 
-#### 13.3.5 `addWish`
+#### 13.3.8 Delete group (app, organizer)
 
-- **Called by:** app and website. **Authentication:** optional.
-- **Input:** `{ token: string; wish: WishInput }`
-- **Validations:** BR-38 and BR-39 (trims leading and trailing spaces; empty optional fields are dropped; link normalized and restricted to `http` and `https`).
-- **Effects:** in a transaction, counts the participant's suggestions; if there are already 5, it fails; otherwise, it creates the suggestion with `createdAt`, `updatedAt` and the group's `expiresAt`.
-- **Output:** `{ wish: WishDTO }`
-- **Errors:** `INVALID_TOKEN`, `LINK_NOT_FOUND`, `INVALID_WISH`, `WISH_LIMIT_REACHED`.
+1. Read the participants (tokens and IDs) from the status listener's data.
+2. Delete in batches of at most 10: `groups/{g}/wishLists/{p}`, `assignments/{token}`, `tokens/{token}` and `groups/{g}/participants/{p}` for each participant.
+3. Last batch: `recoveryTokens/{token}`, `users/{uid}/memberships/{g}` and `groups/{g}`. The group goes last so the rules can still confirm the organizer during the earlier batches.
+- Deleting a document that no longer exists is accepted, so an interrupted deletion is retried from the start.
+- Memberships on participants' devices are not reachable from the organizer's device. Those apps remove the entry when the link reports `LINK_NOT_FOUND`, and the daily cleanup job removes the rest (section 11.3).
+- **Errors:** `NOT_ORGANIZER`, `NETWORK`. A group that no longer exists counts as success.
 
-#### 13.3.6 `updateWish`
+#### 13.3.9 Recovery preview (app)
 
-- **Called by:** app and website. **Authentication:** optional.
-- **Input:** `{ token: string; wishId: string; wish: WishInput }`
-- **Validations:** those of `addWish`; the suggestion must belong to the token's participant.
-- **Effects:** replaces all fields (empty fields are removed) and updates `updatedAt`.
-- **Output:** `{ wish: WishDTO }`
-- **Errors:** `INVALID_TOKEN`, `LINK_NOT_FOUND`, `INVALID_WISH`, `WISH_NOT_FOUND`.
+`get recoveryTokens/{token}`. Missing or expired: `LINK_NOT_FOUND`. Output (`RecoveryPreview`): `groupId`, `groupName`, `eventDate`, `isAlreadyOrganizer` (`organizerUid == uid`).
 
-#### 13.3.7 `removeWish`
+#### 13.3.10 Claim group (app, after confirmation)
 
-- **Called by:** app and website. **Authentication:** optional.
-- **Input:** `{ token: string; wishId: string }`
-- **Effects:** deletes the suggestion if it belongs to the token's participant. If it does not exist, it does nothing (idempotent).
-- **Output:** `{}`
-- **Errors:** `INVALID_TOKEN`, `LINK_NOT_FOUND`.
+One batch, skipped if the caller is already the organizer:
 
-#### 13.3.8 `markLinkShared`
-
-- **Called by:** app. **Authentication:** required (organizer).
-- **Input:** `{ groupId: string; participantId: string }`
-- **Validations:** the caller is the organizer; the participant exists and is not the organizer.
-- **Effects:** writes `linkSharedAt = now`.
-- **Output:** `{ linkSharedAt: string }`
-- **Errors:** `unauthenticated`, `GROUP_NOT_FOUND`, `NOT_ORGANIZER`, `INVALID_REQUEST`.
-
-#### 13.3.9 `deleteGroup`
-
-- **Called by:** app. **Authentication:** required (organizer).
-- **Input:** `{ groupId: string }`
-- **Effects:** reads the participants' tokens and the recovery token; deletes the matching `tokens/*` and `recoveryTokens/*`; deletes the memberships on every device (collection group query on `memberships` by `groupId`); deletes the group with `recursiveDelete` (participants, suggestions and assignments).
-- **Idempotency:** a nonexistent group returns success, after deleting the caller's membership, if any.
-- **Output:** `{}`
-- **Errors:** `unauthenticated`, `NOT_ORGANIZER`.
-
-#### 13.3.10 `previewRecovery`
-
-- **Called by:** app. **Authentication:** required.
-- **Input:** `{ recoveryToken: string }`
-- **Output:** `{ groupId: string; groupName: string; eventDate: string | null; isAlreadyOrganizer: boolean }`
-- **Errors:** `unauthenticated`, `INVALID_TOKEN`, `LINK_NOT_FOUND`.
-
-#### 13.3.11 `claimGroup`
-
-- **Called by:** app, after confirmation. **Authentication:** required.
-- **Input:** `{ recoveryToken: string }`
-- **Effects:** in a transaction, if the caller is already the organizer, it does nothing. Otherwise: updates `organizerUid` on the group and on each participant; deletes the previous organizer's membership; creates the caller's `organizer` membership with the organizer's access token and the recovery token. The recovery token does not change (regenerating it is v2).
-- **Output:** `{ groupId: string }`
-- **Errors:** `unauthenticated`, `INVALID_TOKEN`, `LINK_NOT_FOUND`.
+1. `update recoveryTokens/{token}` with `organizerUid = uid`.
+2. `update groups/{g}` with `organizerUid = uid`.
+3. `set users/{uid}/memberships/{g}` with `role: organizer`, `participantToken = organizerToken`, the recovery token and the copies from the recovery document.
+4. `delete users/{previousOrganizerUid}/memberships/{g}`.
+- The recovery token does not change (regenerating it is v2).
+- **Output:** `groupId`. **Errors:** `LINK_NOT_FOUND`, `NETWORK`.
 
 ### 13.4 Shared types
+
+Document shapes, as TypeScript-style notation for readability. The website uses the same names in plain JavaScript.
 
 ```ts
 type Money = { amountMinor: number; currencyCode: "BRL" };
@@ -2665,21 +2779,22 @@ type WishInput = {
   link?: string;
 };
 
-type WishDTO = WishInput & {
+type Wish = WishInput & {
   wishId: string;
-  createdAt: string;
-  updatedAt: string;
+  createdAt: Timestamp;
+  updatedAt: Timestamp;
 };
 ```
 
-In the app, each type has a `Codable` DTO in `Services/Firebase/DTOs`, converted to the matching Model by the service. Models are never `Codable` because of the server: the shape of the data on the wire can change without affecting the rest of the app.
+In the app, each document has a `Codable` DTO in `Services/Firebase/DTOs`, converted to the matching Model by the service. Models are never `Codable` because of Firestore: the shape of the stored data can change without affecting the rest of the app.
 
 ### 13.5 Implementation rules
 
-- One file per Function in `handlers/`, with domain logic in `domain/` (testable without Firebase) and data access in `data/`.
-- A `resolveAccessToken(token)` function centralizes: format, reading `tokens/{token}`, reading the group and the participant, and checking `expiresAt`.
-- Character counting by grapheme with `Intl.Segmenter` (same as Swift's `count`).
-- Name normalization: `trim`, collapsed inner spaces, `normalize("NFKD")`, removal of diacritics (`\p{M}`) and `toLowerCase()`. The test vectors in `shared/test-vectors/normalization.json` guarantee the same result in Swift (`folding(options: [.caseInsensitive, .diacriticInsensitive, .widthInsensitive], locale: nil)`).
+- Firestore paths are built in one place: `FirestorePaths` (app) and `web/js/paths.js` (website).
+- Token resolution (format, `get tokens/{token}`, `expiresAt`, error mapping) is a single function on each side: `AccessService.groupAccess(token:)` and `resolveLink(token)`.
+- Character counting by grapheme: Swift's `count` in the app and `Intl.Segmenter` on the website, checked by the shared vectors.
+- Name normalization exists only in the app (`NameNormalizer`): `trim`, collapsed inner spaces, `folding(options: [.caseInsensitive, .diacriticInsensitive, .widthInsensitive], locale: nil)`. The vectors in `shared/test-vectors/normalization.json` cover it.
+- Field limits are identical in `FieldLimits` (Swift) and `web/js/limits.js`.
 
 ---
 
@@ -2725,9 +2840,6 @@ Published at `https://sortixamigosecreto.com.br/.well-known/apple-app-site-assoc
     "rules": "backend/firestore.rules",
     "indexes": "backend/firestore.indexes.json"
   },
-  "functions": [
-    { "source": "backend/functions", "codebase": "default" }
-  ],
   "hosting": {
     "public": "web",
     "cleanUrls": true,
@@ -2745,7 +2857,7 @@ Published at `https://sortixamigosecreto.com.br/.well-known/apple-app-site-assoc
           { "key": "Permissions-Policy", "value": "camera=(), microphone=(), geolocation=()" },
           {
             "key": "Content-Security-Policy",
-            "value": "default-src 'self'; script-src 'self'; style-src 'self'; img-src 'self' data:; connect-src 'self'; frame-ancestors 'none'; base-uri 'none'; form-action 'self'"
+            "value": "default-src 'self'; script-src 'self' https://www.gstatic.com; style-src 'self'; img-src 'self' data:; connect-src 'self' https://firestore.googleapis.com https://identitytoolkit.googleapis.com https://securetoken.googleapis.com; frame-ancestors 'none'; base-uri 'none'; form-action 'self'"
           }
         ]
       },
@@ -2755,12 +2867,6 @@ Published at `https://sortixamigosecreto.com.br/.well-known/apple-app-site-assoc
       }
     ],
     "rewrites": [
-      { "source": "/api/getGroupAccess", "function": { "functionId": "getGroupAccess", "region": "southamerica-east1" } },
-      { "source": "/api/getReveal", "function": { "functionId": "getReveal", "region": "southamerica-east1" } },
-      { "source": "/api/getMyWishes", "function": { "functionId": "getMyWishes", "region": "southamerica-east1" } },
-      { "source": "/api/addWish", "function": { "functionId": "addWish", "region": "southamerica-east1" } },
-      { "source": "/api/updateWish", "function": { "functionId": "updateWish", "region": "southamerica-east1" } },
-      { "source": "/api/removeWish", "function": { "functionId": "removeWish", "region": "southamerica-east1" } },
       { "source": "/g/**", "destination": "/access.html" },
       { "source": "/r/**", "destination": "/recovery.html" }
     ]
@@ -2768,7 +2874,8 @@ Published at `https://sortixamigosecreto.com.br/.well-known/apple-app-site-assoc
 }
 ```
 
-- `firebase.json` and `.firebaserc` live at the repository root; rules, indexes and Functions in `backend/`; the website in `web/` (section 7).
+- `firebase.json` and `.firebaserc` live at the repository root; rules and indexes in `backend/`; the website in `web/` (section 7).
+- The CSP allows the Firebase JS SDK from `www.gstatic.com` and the Firestore and Auth endpoints. The website's Firebase web app has its own API key ("Browser key"), restricted in the Google Cloud Console to the `https://sortixamigosecreto.com.br/*` referrer and to the Firestore, Identity Toolkit and Token Service APIs. The domain is also listed under Authentication → Settings → Authorized domains.
 - The custom domain is connected to Hosting in the Firebase console (DNS records at Registro.br). The HTTPS certificate is issued automatically.
 - `Referrer-Policy: no-referrer` keeps the token from reaching stores when someone opens a suggestion link.
 - `X-Robots-Tag` keeps search engines from indexing pages with a token.
@@ -2884,10 +2991,10 @@ routeIfReady():               // also called when authentication and the creatio
 |---|---|---|---|
 | 1 | No internet on first launch | Error state with "Tentar novamente" on the list | 4.1 |
 | 2 | No internet when drawing | Alert that retries the same request (idempotent) | BR-26, 4.3 |
-| 3 | App closed during `createGroup` | If the server wrote, the group appears in the list through the membership; otherwise nothing is saved | 4.3 |
-| 4 | Server rejects the draw (`INVALID_ASSIGNMENT`) | Generic message, non-fatal error in Crashlytics, new draw with a new `groupId` | 4.3 |
+| 3 | App closed during group creation | If the commit batch was written, the group appears in the list through the membership; otherwise nothing appears and the cleanup job removes the partial documents when they expire | 4.3 |
+| 4 | Firestore rejects a creation write (`permission-denied`) | Generic message, non-fatal error in Crashlytics, new draw with a new `groupId` | 4.3 |
 | 5 | Names that differ only by accent, case or spacing | Treated as equal; duplicate error | BR-10 |
-| 6 | Name with an emoji | Counted the way the user sees it (a composed emoji is 1 character) in the app, on the website and on the server | 13.5 |
+| 6 | Name with an emoji | Counted the way the user sees it (a composed emoji is 1 character) in the app and on the website | 13.5 |
 | 7 | Organizer without a name | "Revisar" disabled; the "Você" row shows the hint | BR-11 |
 | 8 | Contact without a name | Warning, nothing is added | BR-13 |
 | 9 | Contact with a name over 20 characters | Added flagged with an error for editing | BR-13 |
@@ -2900,23 +3007,24 @@ routeIfReady():               // also called when authentication and the creatio
 | 16 | The event date has passed | Nothing changes until expiration | BR-51 |
 | 17 | Organizer and participant in different time zones | The date is `YYYY-MM-DD` text, so the day is the same for everyone | BR-04 |
 | 18 | Maximum value typed as zero or above the limit | Error on the field | BR-03 |
-| 19 | Token with an invalid format | Invalid link screen without calling the server | 4.5 |
+| 19 | Token with an invalid format | Invalid link screen without any request | 4.5 |
 | 20 | Deleted or expired group | Same invalid link message | BR-52 |
-| 21 | TTL has not yet deleted an expired document | Functions and rules treat it as nonexistent | BR-51 |
+| 21 | The cleanup job has not yet deleted an expired document | The app and the website treat it as nonexistent | BR-51 |
 | 22 | WhatsApp link preview or a bot hits the page | Nothing is recorded; reveal only through the button | BR-33 |
 | 23 | Forwarded link opened by someone else | The screen shows whose link it is; if they reveal, the owner will see "Revelado pela primeira vez em…" and the organizer will see "Já revelou" | BR-32, BR-34 |
-| 24 | Organizer opens another participant's link | Technically possible (they send the links). It is recorded as a reveal, visible to the owner | BR-34 |
+| 24 | Organizer opens another participant's link on their iPhone | Blocked by the rules (`ORGANIZER_LINK_BLOCKED`); the app explains it and records nothing. In a browser on another device it works and counts as a reveal, visible to the owner (accepted: the organizer is trusted) | 4.5, 12.2 |
 | 25 | Same participant opens in the app and on the website | Both work; only the first reveal is recorded | BR-34 |
 | 26 | Participant installs the app after using the website | The next tap on the link opens the app and creates the membership | 4.5 |
 | 27 | Organizer opens their own participant link | Membership stays organizer; access works normally | 13.3.2 |
+| 27a | Two links of the same group opened on one iPhone (shared phone) | Both open normally; the list keeps the first one's membership | 13.3.2 |
 | 28 | Universal Link opened with the creation flow in progress | No data: dismisses the modal and opens the link. With data: holds the link and opens it when done | 14.6 |
 | 29 | Universal Link does not open the app (earlier Safari choice, in-app browser) | The website works; banner and support page explain how to open in the app | 14.8 |
 | 30 | Link sent to the wrong person | Resend to the right person; invalidating the link is v2 | 4.4 |
 | 31 | Sharing cancelled | Status does not change | BR-30 |
 | 32 | Failure recording "Link enviado" | Retry; then revert the state and notify | 4.4 |
-| 33 | Two tabs adding the 6th suggestion | The transaction guarantees at most 5; the second gets `WISH_LIMIT_REACHED` | 13.3.5 |
-| 34 | Editing an already removed suggestion | `WISH_NOT_FOUND`, message and reload | 13.3.6 |
-| 35 | Removing an already removed suggestion | Success (idempotent) | 13.3.7 |
+| 33 | Two tabs adding the 6th suggestion | The transaction (and the 5-entry rule) guarantees at most 5; the second gets `WISH_LIMIT_REACHED` | 13.3.5 |
+| 34 | Editing an already removed suggestion | `WISH_NOT_FOUND`, message and reload | 13.3.5 |
+| 35 | Removing an already removed suggestion | Success (idempotent) | 13.3.5 |
 | 36 | Link typed without a scheme | The app and the website prepend `https://` | BR-39 |
 | 37 | Link with `javascript:`, `ftp:`, `mailto:` | Rejected | BR-39 |
 | 38 | Drawn person without suggestions | Default message on the reveal | BR-43 |
@@ -2925,7 +3033,9 @@ routeIfReady():               // also called when authentication and the creatio
 | 41 | Recovery link leaks to someone else | That person can take over the group; the organizer notices because the group disappears from their iPhone. They can recover it back with the same link. Regenerating is v2 | BR-47 |
 | 42 | Recovery link opened on the website | The page explains it must be opened on the iPhone with the app | BR-48 |
 | 43 | Status screen open when the group is recovered on another device | Permission error on the listener → message and back to the list | 4.10 |
-| 44 | Group deleted while a participant is on the reveal screen | The next call receives `LINK_NOT_FOUND` and shows the invalid link | BR-52 |
+| 44 | Group deleted while a participant is on the reveal screen | The next read gets `LINK_NOT_FOUND` and shows the invalid link | BR-52 |
+| 48 | Group deleted by the organizer | It disappears from participants' lists when they open it or after the next daily cleanup, not instantly | 4.11 |
+| 49 | Spark daily quota used up | Firestore refuses requests until the quota resets; the app and the website show the generic error. No charge is possible | 11.5 |
 | 45 | Largest Dynamic Type size | Cells and forms grow; no truncated text | 6.10 |
 | 46 | iPhone app in iPad compatibility mode (Apple review) | Works as on iPhone; the `UIActivityViewController` uses the button as its source | 5.6 |
 | 47 | App reinstall | The anonymous user may or may not persist (depends on the Keychain); if lost, case 39 applies | BR-49 |
@@ -2939,14 +3049,14 @@ routeIfReady():               // also called when authentication and the creatio
 | Layer | v1 | Prepared for later |
 |---|---|---|
 | Domain (Swift) | Full unit tests with Swift Testing | — |
-| Domain (TypeScript) | Unit tests with Vitest | — |
+| Website (JavaScript) | Unit tests with Vitest for `validation.js` and `i18n.js` | — |
 | Shared vectors | Normalization, character counting and suggestion validation | More cases as bugs show up |
 | DeepLinkParser | Unit tests | — |
 | ViewModels | — | Tests with service mocks |
 | Coordinators | — | Tests with `MockNavigationRouter` |
 | Memory leaks | One test per scene (cheap, and catches the most common closure mistake) | — |
-| Firestore rules | — | `@firebase/rules-unit-testing` on the emulator |
-| End-to-end Functions | Manual test with the Emulator Suite | Integration tests on the emulator |
+| Firestore rules | `@firebase/rules-unit-testing` on the emulator (section 12.3) | More cases as bugs show up |
+| Cleanup job | Manual run against the emulator | Automated test on the emulator |
 | Interface | Manual test (section 16.5) | XCUITest with `performAccessibilityAudit()` |
 
 ### 16.2 v1 tests
@@ -2963,9 +3073,13 @@ Framework: Swift Testing (`import Testing`, `@Test`, `#expect`, parameterized te
 | `LinkNormalizerTests` | `loja.com/x` becomes `https://loja.com/x`; `http://` and `https://` accepted; `javascript:`, `ftp:`, `mailto:` rejected; leading and trailing spaces removed; 2,000 and 2,001 characters; URL without a host rejected |
 | `CurrencyInputParserTests` | Digits become cents; non-numeric characters ignored; leading zeros; maximum limit |
 | `DeepLinkParserTests` | Table in section 14.6 |
+| `AccessTokenGeneratorTests` | 43 characters, base64url alphabet, no padding, different values with different seeds |
+| `ExpiryCalculatorTests` | Event date + 60 days at 00:00 UTC; no date: creation + 120 days |
 | Leak test per scene | ViewController and ViewModel released after use |
 
-Functions (Vitest): `assignmentValidator`, `validation` (group, participants, rules, suggestions), `normalization` (shared vectors), `tokens` (size and alphabet) and `expiry` (date + 60 days, creation + 120 days).
+Website (Vitest): `validation.js` (suggestions and link normalization, shared vectors) and `i18n.js` (grapheme counting, date and money formatting).
+
+Firestore rules (Vitest on the emulator): the cases in section 12.3.
 
 ### 16.3 Prepared for later
 
@@ -3041,7 +3155,7 @@ func groupListSceneIsReleased() {
 
 ### 16.4 Shared test vectors
 
-JSON files in `shared/test-vectors/`, read by the Swift tests (`TestVectors` finds them from its own source path with `#filePath`; simulator tests run on the Mac, so nothing is copied into the test bundle) and by the Vitest tests (read with `fs`).
+JSON files in `shared/test-vectors/`, read by the Swift tests (`TestVectors` finds them from its own source path with `#filePath`; simulator tests run on the Mac, so nothing is copied into the test bundle) and by the website's Vitest tests (read with `fs`).
 
 ```json
 {
@@ -3073,7 +3187,8 @@ JSON files in `shared/test-vectors/`, read by the Swift tests (`TestVectors` fin
 6. Reveal in the app and on the website; check "Revelado pela primeira vez em…" and the status on the organizer's device.
 7. Suggestions: add 5, see the limit, edit, remove, link without `https`, long link; check them on the reveal of whoever drew the person.
 8. Save the recovery link, recover on another iPhone and check that the old device lost access.
-9. Delete a group and open an old link.
+9. Delete a group and open an old link; check that it leaves the participants' lists after opening it.
+9a. On the organizer's iPhone, open another participant's link and check the block message.
 10. Draw without internet and retry; close the app during the draw.
 11. Dark mode, largest text size and a VoiceOver pass through the main flow.
 12. Group with 50 participants (performance and scrolling).
@@ -3182,8 +3297,9 @@ Notes:
 - [ ] Launch screen through the Info.plist `UILaunchScreen` key (no storyboard); references to `Main.storyboard` removed from Info.plist and from the target.
 - [ ] Crashlytics script phase uploading the dSYMs.
 - [ ] Universal Links tested on the production domain, with the AASA containing the correct `TEAM_ID`.
-- [ ] Firestore rules, indexes and TTL policies deployed.
-- [ ] Budget alert configured in Google Cloud (US$ 5).
+- [ ] Firestore rules and indexes deployed; rules tests passing.
+- [ ] Daily cleanup workflow enabled and one manual run checked.
+- [ ] Browser API key restricted to the domain; domain in Auth's authorized domains.
 - [ ] Privacy and support pages published.
 - [ ] Demo group created and link included in the notes.
 
@@ -3203,7 +3319,7 @@ Notes:
 |---|---|---|
 | Register `sortixamigosecreto.com.br` | 11/02 | Hosting, AASA and link texts depend on it |
 | Apply to the Apple Developer Program | 11/02 | Approval can take days; without it there are no Associated Domains and no TestFlight |
-| Create the Firebase project in São Paulo, on the Blaze plan, with a budget alert | 11/02 | The region cannot change later; Functions require Blaze |
+| Create the Firebase project in São Paulo, on the Spark plan | 11/02 | The region cannot change later |
 | Create a contact email for the project | 11/02 | Support, privacy policy and domain registration |
 | Enrollment approved | by 11/10 | Universal Links come in week 3 |
 
@@ -3228,11 +3344,11 @@ Milestone: the app opens, authenticates and shows the empty list; all Domain tes
 
 | Task | Days |
 |---|---|
-| Functions project (TypeScript, ESLint, Vitest), domain modules and tests | 1 |
-| `createGroup`, Firestore rules, indexes and TTL | 1 |
+| Firestore rules with emulator tests, indexes, `firebase.json` | 1 |
+| `AccessTokenGenerator`, `ExpiryCalculator` and group creation writes | 1 |
 | Screen 2 (rules) | 1 |
 | Screens 3 and 3b (participants, contacts, restrictions) | 1.5 |
-| Screen 4 (review, feasibility, draw, `createGroup` call) | 1 |
+| Screen 4 (review, feasibility, draw, group creation) | 1 |
 | Group list wired to real-time memberships | 0.5 |
 
 Milestone: create and draw a group end to end; the group appears in the list and the documents are correct in Firestore.
@@ -3241,12 +3357,12 @@ Milestone: create and draw a group end to end; the group appears in the list and
 
 | Task | Days |
 |---|---|
-| Screen 5 (real-time status, sharing, `markLinkShared`) | 1.5 |
-| Recovery link: card, menu, `previewRecovery`, `claimGroup`, flow 4.10 | 1 |
-| `deleteGroup` and deletion on screen 5 | 0.5 |
+| Screen 5 (real-time status, sharing, `linkSharedAt`) | 1.5 |
+| Recovery link: card, menu, preview, claim batch, flow 4.10 | 1 |
+| Group deletion on screen 5 | 0.5 |
 | Hosting with the domain, AASA, Associated Domains, `DeepLinkParser` with tests, routing in the `AppCoordinator` | 1 |
-| `getGroupAccess` and screen 6 | 1 |
-| `getReveal` and screen 7 | 1 |
+| Link opening and screen 6 | 1 |
+| Reveal transaction and screen 7 | 1 |
 
 Milestone: the full cycle in the app, with Universal Links: create, send, open through the link, reveal and recover on another device.
 
@@ -3254,7 +3370,7 @@ Milestone: the full cycle in the app, with Universal Links: create, send, open t
 
 | Task | Days |
 |---|---|
-| `getMyWishes`, `addWish`, `updateWish`, `removeWish` with tests | 0.75 |
+| Wish list transactions (app) and daily cleanup job | 0.75 |
 | Screens 8 and 8b | 1.25 |
 | Website: access, reveal, suggestions, recovery, `i18n.js`, light and dark CSS | 2 |
 | Privacy and support pages | 0.25 |
@@ -3297,13 +3413,14 @@ Items 1 to 4 do not change anything essential the user sees. Item 5 is the last 
 - Bind to the first device (lock the link after the first reveal), together with token regeneration.
 - New languages (app, website and static pages).
 - App Check (App Attest on iOS and reCAPTCHA on the website).
+- Stronger protection of results against a determined organizer (for example, end-to-end encryption of assignments), if groups of people who don't trust each other become a goal.
 - Saved group drafts.
 - Single-cycle option (everyone in one circle).
 - Organizer who does not take part in the draw.
 - Remove a group from one's own list without deleting it.
 - Warning when restrictions leave few possible combinations.
 - UI tests with XCUITest and `performAccessibilityAudit()`.
-- Firestore rules tests and Functions integration tests on the emulator.
+- Automated tests for the cleanup job on the emulator.
 - iPad and other countries.
 
 Not in v2: any kind of login (principle P1).

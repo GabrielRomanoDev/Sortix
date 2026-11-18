@@ -6,7 +6,7 @@ Directives for working in the Sortix repository. Read this file before any task 
 
 Sortix is an iPhone app that organizes Secret Santa ("amigo secreto") without sign-up. The organizer creates the group, adds participants and restrictions, runs the draw on their own iPhone and sends a personal link to each participant. The participant opens the link in the app or on the website, reveals who they drew and adds gift suggestions.
 
-The full v1 specification is `docs/SPEC.md`. It is the source of truth for business rules (BR-01 to BR-56), screens, flows, data model, Cloud Functions contracts and tests. **When the code and the specification disagree, one of them is wrong: fix the code or update the specification in the same commit.** Before implementing a screen or a flow, read the matching section of the specification.
+The full v1 specification is `docs/SPEC.md`. It is the source of truth for business rules (BR-01 to BR-56), screens, flows, data model, security rules, data access contracts and tests. **When the code and the specification disagree, one of them is wrong: fix the code or update the specification in the same commit.** Before implementing a screen or a flow, read the matching section of the specification.
 
 ## Language
 
@@ -35,13 +35,13 @@ Do not introduce new dependencies, frameworks or patterns without a clear need. 
 |---|---|
 | Bundle ID | `br.com.sortixamigosecreto.app.Sortix` |
 | Domain | `sortixamigosecreto.com.br` |
-| Firebase project | `sortix-amigo-secreto`, region `southamerica-east1` |
+| Firebase project | `sortix-amigo-secreto`, region `southamerica-east1`, free Spark plan |
 | Minimum iOS | 17.0 |
 | Devices | iPhone only, portrait only |
 | Language | pt-BR (development language), ready for others |
 | Tooling | Xcode 26 or later, Swift 6 (language mode 6, strict concurrency) |
-| Dependencies (SPM) | Firebase iOS SDK (FirebaseAuth, FirebaseFirestore, FirebaseFunctions, FirebaseCrashlytics). Nothing else without discussion |
-| Backend | Firebase: anonymous Auth, Firestore, 2nd gen Cloud Functions in TypeScript, Hosting |
+| Dependencies (SPM) | Firebase iOS SDK (FirebaseAuth, FirebaseFirestore, FirebaseCrashlytics). Nothing else without discussion |
+| Backend | Firebase on Spark: anonymous Auth, Firestore protected by security rules, Hosting. **No Cloud Functions.** Daily cleanup job on GitHub Actions |
 
 If the Xcode project settings diverge from this table (bundle ID, deployment target, device family, Swift version, default isolation), the table wins.
 
@@ -58,15 +58,18 @@ Never violate these principles, even if a task seems to ask for it:
 
 Tokens, assignments, names and suggestions never appear in logs, Crashlytics or the console (BR-55).
 
+The organizer is trusted (groups of friends and family). The security rules guard against accidental peeking from the organizer's device, not against a determined organizer. Do not add encryption or server code to change that without discussion.
+
 ## Repository structure
 
-Monorepo with the app, backend and website (details in section 7 of the specification):
+Monorepo with the app, Firebase configuration and website (details in section 7 of the specification):
 
 - `ios/Sortix/` with `App/`, `Core/`, `Domain/`, `Models/`, `Services/`, `Features/`, `DesignSystem/`, `Extensions/` and `Resources/`.
 - `ios/SortixTests/` mirroring the tested folders, plus `Mocks/` and `Support/`.
-- `backend/` with `firestore.rules`, `firestore.indexes.json` and `functions/` (TypeScript).
+- `backend/` with `firestore.rules`, `firestore.indexes.json`, `rules-tests/` (rules tests on the emulator) and `cleanup/` (daily cleanup job, Node.js + Admin SDK).
+- `.github/workflows/` with the daily cleanup and the checks.
 - `web/` with the static website (HTML + JavaScript, no framework).
-- `shared/test-vectors/` with JSON vectors read by both the Swift and TypeScript tests.
+- `shared/test-vectors/` with JSON vectors read by both the Swift and the website tests.
 - `scripts/` with verification scripts.
 
 File rules:
@@ -129,7 +132,7 @@ One pattern for the whole app, with closures:
 - `ValidationError` (Domain), `DrawFailure` (Domain) and `ServiceError` (Services, through `FirebaseErrorMapper`).
 - The ViewModel keeps the typed error in its state. The ViewController turns it into text with `ErrorMessageMapper` (an exhaustive `switch` returning `LocalizedStringResource`).
 - Tests check the error type, never the text.
-- Unexpected errors go to Crashlytics as non-fatal, with context made only of codes (`reason`, Function name, screen name).
+- Unexpected errors go to Crashlytics as non-fatal, with context made only of codes (`reason`, operation name, screen name).
 
 ## Interface
 
@@ -162,7 +165,7 @@ Follow the table in section 6.10 of the specification. The essentials:
 - Keys follow `<area>.<component>.<element>[.<variant>]`, camelCase within each segment, with the standard suffixes in section 8.2 of the specification. Every key has an English comment for translators.
 - Counts use `%lld` with plural variation. Never concatenate a number and a word.
 - Lists of names use `ListFormatStyle`; dates and currency are formatted with injected `Locale` and `Calendar`; never write "R$" in code. Money is `Money(amountMinor:currencyCode:)`.
-- The server never returns user-facing text, only reason codes (`reason`).
+- Firestore never stores or returns user-facing text; errors become reason codes (`reason`, section 13.2 of the specification).
 - On the website, all text enters the DOM through `textContent`; `innerHTML` and equivalents are forbidden.
 
 ## Comments
@@ -182,7 +185,7 @@ Follow the table in section 6.10 of the specification. The essentials:
 ## Logging
 
 - Logs use `os.Logger` through `AppLogger`, with one category per area. Dynamic values always use `privacy: .private`.
-- In the Functions and on the website, no `console.log`; use the Functions logger.
+- On the website, no `console.log`. The cleanup job logs only counts.
 
 ## Tests
 
@@ -191,15 +194,18 @@ Follow the table in section 6.10 of the specification. The essentials:
 - Every scene has a memory leak test (ViewController and ViewModel become `nil` after being released).
 - Draw tests use `SeededRandomNumberGenerator` with a fixed seed; production uses `SystemRandomNumberGenerator`.
 - Dates, calendar, clock and locale are injected so tests use fixed values.
-- Rules that exist on both the app and the server (normalization, grapheme-based character counting, suggestion validation) are checked by the vectors in `shared/test-vectors/`. Field limits are identical in `FieldLimits` (Swift) and `limits.ts` (TypeScript).
-- Functions are tested with Vitest, with the logic in `domain/` testable without Firebase.
+- Rules that exist on both the app and the website (grapheme-based character counting, suggestion validation, link normalization) are checked by the vectors in `shared/test-vectors/`. Field limits are identical in `FieldLimits` (Swift) and `web/js/limits.js`.
+- The Firestore security rules are tested with `@firebase/rules-unit-testing` and Vitest on the emulator (section 12.3 of the specification). Every rules change comes with tests.
+- The website's pure modules (`validation.js`, `i18n.js`) are tested with Vitest.
 
 ## Backend and website
 
-- 2nd gen Cloud Functions, TypeScript, all `onCall`, region `southamerica-east1`. One file per Function in `handlers/`, logic in `domain/`, data access in `data/`.
-- Every input is validated against a schema before any read; unknown fields are rejected.
-- The server re-validates the draw (BR-18 to BR-21) before writing. The app never reads the assignments collection.
-- Static website in HTML and JavaScript without a framework, with texts in `web/locales/<language>.json`.
+- **No server code.** The app and the website use the Firebase client SDKs, and `backend/firestore.rules` is the only server-side protection. Follow the documents, rules and operations in sections 11 to 13 of the specification.
+- Tokens are document IDs: rules allow `get`, never `list`. Writes that need a token go together with a write to `tokens/{token}` (token proof through `getAfter()`).
+- The app validates the draw (BR-18 to BR-21) with `AssignmentValidator` right before writing; the rules cannot. The app never reads assignments other than the organizer's own.
+- Keep `get()`/`getAfter()` calls in the rules low (10 per document, 20 per batch).
+- Firestore TTL needs billing, so expiration is done by the clients (treat `expiresAt <= now` as nonexistent) and by the daily cleanup job.
+- Static website in HTML and JavaScript without a framework, with texts in `web/locales/<language>.json`. The Firebase JS SDK is loaded as ES modules from gstatic at a pinned version.
 
 ## Definition of done
 
@@ -218,4 +224,4 @@ A screen or feature is done only when:
 - Development happens on the `dev` branch; pull requests target `dev`.
 - Small commits with a clear message describing what changes and why.
 - After implementing each stage, report in the conversation what was added and what to test (automated tests to run and manual checks in the simulator) to confirm it works.
-- Out of v1 scope (section 19 of the specification): editing a group or redoing the draw, notifications, iPad, other languages, App Check, any kind of login. Do not implement these without an explicit request.
+- Out of v1 scope (section 19 of the specification): editing a group or redoing the draw, notifications, iPad, other languages, App Check, Cloud Functions or anything that needs the Blaze plan, any kind of login. Do not implement these without an explicit request.
