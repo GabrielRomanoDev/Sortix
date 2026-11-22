@@ -1,3 +1,4 @@
+import FirebaseCore
 import UIKit
 
 @main
@@ -6,7 +7,9 @@ final class AppDelegate: UIResponder, UIApplicationDelegate {
         _ application: UIApplication,
         didFinishLaunchingWithOptions launchOptions: [UIApplication.LaunchOptionsKey: Any]?
     ) -> Bool {
-        true
+        // Must run before the scene creates `AppDependencies.live()`, which uses Firebase.
+        FirebaseApp.configure()
+        return true
     }
 
     // MARK: - UISceneSession Lifecycle

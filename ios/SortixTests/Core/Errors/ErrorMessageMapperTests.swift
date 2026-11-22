@@ -5,9 +5,10 @@ import Testing
 struct ErrorMessageMapperTests {
     @Test(arguments: [
         (ServiceError.network, "common.error.network.message"),
+        (.invalidToken, "common.invalidLink.message"),
         (.linkNotFound, "common.invalidLink.message"),
-        (.rejected(.invalidToken, field: nil), "common.invalidLink.message"),
-        (.rejected(.wishLimitReached, field: nil), "common.error.generic.message"),
+        (.wishLimitReached, "common.error.generic.message"),
+        (.quotaExceeded, "common.error.generic.message"),
         (.unknown, "common.error.generic.message")
     ])
     func messageKey(error: ServiceError, expectedKey: String) {
@@ -17,6 +18,8 @@ struct ErrorMessageMapperTests {
     @Test func onlyNetworkAndInvalidLinkHaveATitle() {
         #expect(ErrorMessageMapper.title(for: .network)?.key == "common.error.network.title")
         #expect(ErrorMessageMapper.title(for: .linkNotFound)?.key == "common.invalidLink.title")
+        #expect(ErrorMessageMapper.title(for: .invalidToken)?.key == "common.invalidLink.title")
+        #expect(ErrorMessageMapper.title(for: .notOrganizer) == nil)
         #expect(ErrorMessageMapper.title(for: .unknown) == nil)
     }
 }

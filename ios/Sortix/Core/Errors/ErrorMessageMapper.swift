@@ -5,15 +5,16 @@ import Foundation
 ///
 /// The switches have no `default`, so a new error case does not compile until it gets a message.
 enum ErrorMessageMapper {
+    // TODO(error-messages): give organizer, group and suggestion errors their own messages when
+    // their screens land. Until then they use the generic message (section 6.7).
     static func message(for error: ServiceError) -> LocalizedStringResource {
         switch error {
         case .network:
             .commonErrorNetworkMessage
-        case .linkNotFound:
+        case .invalidToken, .linkNotFound:
             .commonInvalidLinkMessage
-        case .rejected(let reason, _):
-            message(for: reason)
-        case .unauthenticated, .permissionDenied, .unknown:
+        case .unauthenticated, .organizerLinkBlocked, .notOrganizer, .groupNotFound,
+             .wishLimitReached, .wishNotFound, .quotaExceeded, .unknown:
             .commonErrorGenericMessage
         }
     }
@@ -23,25 +24,11 @@ enum ErrorMessageMapper {
         switch error {
         case .network:
             .commonErrorNetworkTitle
-        case .linkNotFound:
+        case .invalidToken, .linkNotFound:
             .commonInvalidLinkTitle
-        case .rejected(.linkNotFound, _), .rejected(.invalidToken, _):
-            .commonInvalidLinkTitle
-        case .rejected, .unauthenticated, .permissionDenied, .unknown:
+        case .unauthenticated, .organizerLinkBlocked, .notOrganizer, .groupNotFound,
+             .wishLimitReached, .wishNotFound, .quotaExceeded, .unknown:
             nil
-        }
-    }
-
-    // TODO(error-messages): give form and suggestion reasons their own messages when their screens land.
-    private static func message(for reason: FunctionErrorReason) -> LocalizedStringResource {
-        switch reason {
-        case .linkNotFound, .invalidToken:
-            .commonInvalidLinkMessage
-        case .invalidRequest, .invalidGroupName, .invalidRules, .invalidParticipants,
-             .invalidParticipantName, .duplicatedParticipantName, .invalidRestriction,
-             .invalidAssignment, .groupIDConflict, .notOrganizer, .groupNotFound,
-             .invalidWish, .wishLimitReached, .wishNotFound:
-            .commonErrorGenericMessage
         }
     }
 }
