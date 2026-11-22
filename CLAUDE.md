@@ -69,7 +69,7 @@ Monorepo with the app, Firebase configuration and website (details in section 7 
 - `backend/` with `firestore.rules`, `firestore.indexes.json`, `rules-tests/` (rules tests on the emulator) and `cleanup/` (daily cleanup job, Node.js + Admin SDK).
 - `.github/workflows/` with the daily cleanup and the checks.
 - `web/` with the static website (HTML + JavaScript, no framework).
-- `shared/test-vectors/` with JSON vectors read by both the Swift and the website tests.
+- `shared/test-vectors/` with JSON vectors read by the website tests. The Swift tests repeat the same cases inline, because tests on a physical device cannot read files from the Mac.
 - `scripts/` with verification scripts.
 
 File rules:
@@ -194,7 +194,8 @@ Follow the table in section 6.10 of the specification. The essentials:
 - Every scene has a memory leak test (ViewController and ViewModel become `nil` after being released).
 - Draw tests use `SeededRandomNumberGenerator` with a fixed seed; production uses `SystemRandomNumberGenerator`.
 - Dates, calendar, clock and locale are injected so tests use fixed values.
-- Rules that exist on both the app and the website (grapheme-based character counting, suggestion validation, link normalization) are checked by the vectors in `shared/test-vectors/`. Field limits are identical in `FieldLimits` (Swift) and `web/js/limits.js`.
+- Every test must pass on a physical device, not only on the Simulator: never read files from the Mac.
+- Rules that exist on both the app and the website (grapheme-based character counting, suggestion validation, link normalization) are checked by the vectors in `shared/test-vectors/` (the Swift tests copy the cases inline; keep both in sync). Field limits are identical in `FieldLimits` (Swift) and `web/js/limits.js`.
 - The Firestore security rules are tested with `@firebase/rules-unit-testing` and Vitest on the emulator (section 12.3 of the specification). Every rules change comes with tests.
 - The website's pure modules (`validation.js`, `i18n.js`) are tested with Vitest.
 

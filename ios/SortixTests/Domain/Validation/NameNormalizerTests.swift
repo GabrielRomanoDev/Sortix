@@ -1,16 +1,26 @@
 import Testing
 @testable import Sortix
 
+/// Same cases as `shared/test-vectors/normalization.json`, written here so the tests also run on a
+/// physical device, which cannot read files from the Mac.
 struct NameNormalizerTests {
-    @Test func matchesSharedVectors() throws {
-        for vector in try TestVectors.normalization().normalization {
-            #expect(NameNormalizer.normalize(vector.input) == vector.expected, "Input: \(vector.input)")
-        }
+    @Test(arguments: [
+        ("  Ana  ", "ana"),
+        ("Aná", "ana"),
+        ("JOÃO   Pedro", "joao pedro"),
+        ("Ｍａｒｉａ", "maria"),
+        ("Mãe", "mae")
+    ])
+    func normalizesNames(input: String, expected: String) {
+        #expect(NameNormalizer.normalize(input) == expected)
     }
 
-    @Test func countsCharactersAsPeopleSeeThem() throws {
-        for vector in try TestVectors.normalization().graphemeCount {
-            #expect(vector.input.count == vector.expected, "Input: \(vector.input)")
-        }
+    @Test(arguments: [
+        ("Mãe", 3),
+        ("👩‍👩‍👧", 1),
+        ("Zoë 🎄", 5)
+    ])
+    func countsCharactersAsPeopleSeeThem(input: String, expected: Int) {
+        #expect(input.count == expected)
     }
 }
