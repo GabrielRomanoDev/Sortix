@@ -1,3 +1,4 @@
+import ContactsUI
 import UIKit
 
 /// The group creation flow, presented modally with its own navigation: rules → participants →
@@ -16,6 +17,8 @@ final class CreateGroupCoordinator: NSObject, Coordinator {
     private let presentingRouter: any NavigationRouting
     private let dependencies: AppDependencies
     private let draftStore = CreateGroupDraftStore()
+    /// Waits for the contact picker's answer.
+    private var onContactPicked: (@MainActor (String?) -> Void)?
 
     /// - Parameters:
     ///   - router: The flow's own navigation, shown inside the modal.
@@ -47,6 +50,18 @@ final class CreateGroupCoordinator: NSObject, Coordinator {
         return GroupRulesViewController(viewModel: viewModel)
     }
 
+    private func makeParticipantsScene() -> UIViewController {
+        let viewModel = ParticipantsViewModel(
+            draftStore: draftStore,
+            settingsStore: dependencies.settingsStore,
+            locale: dependencies.locale
+        )
+        viewModel.onNavigation = { [weak self] navigation in
+            self?.handle(navigation)
+        }
+        return ParticipantsViewController(viewModel: viewModel)
+    }
+
     // MARK: - Navigation
 
     private func handle(_ navigation: GroupRulesViewModel.Navigation) {
@@ -58,8 +73,28 @@ final class CreateGroupCoordinator: NSObject, Coordinator {
         }
     }
 
+    private func handle(_ navigation: ParticipantsViewModel.Navigation) {
+        switch navigation {
+        case .openParticipant:
+            // TODO(create-group-restrictions): push the participant detail once stage 15 adds it.
+            break
+        case .pickContact(let onPicked):
+            presentContactPicker(onPicked: onPicked)
+        case .review:
+            // TODO(create-group-draw-review): push the review once stage 16 adds it.
+            break
+        }
+    }
+
     private func showParticipants() {
-        // TODO(create-group-participants): push the participants scene once stage 14 adds it.
+        router.push(makeParticipantsScene(), animated: true, onPop: nil)
+    }
+
+    private func presentContactPicker(onPicked: @escaping @MainActor (String?) -> Void) {
+        onContactPicked = onPicked
+        let picker = CNContactPickerViewController()
+        picker.delegate = self
+        router.present(picker, animated: true)
     }
 
     // MARK: - Leaving the flow
@@ -109,5 +144,20 @@ extension CreateGroupCoordinator: UIAdaptivePresentationControllerDelegate {
 
     func presentationControllerDidDismiss(_ presentationController: UIPresentationController) {
         onFinish?(.cancelled)
+    }
+}
+
+// MARK: - Contact picker
+
+extension CreateGroupCoordinator: @preconcurrency CNContactPickerDelegate {
+    /// Only the contact's name is read; nothing else is kept (BR-12).
+    func contactPicker(_ picker: CNContactPickerViewController, didSelect contact: CNContact) {
+        let name = CNContactFormatter.string(from: contact, style: .fullName)
+        onContactPicked?(name)
+        onContactPicked = nil
+    }
+
+    func contactPickerDidCancel(_ picker: CNContactPickerViewController) {
+        onContactPicked = nil
     }
 }

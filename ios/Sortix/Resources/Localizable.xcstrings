@@ -529,6 +529,234 @@
         }
       }
     },
+    "participants.action.remove": {
+      "comment": "Swipe action that removes a participant.",
+      "extractionState": "manual",
+      "localizations": {
+        "pt-BR": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Remover"
+          }
+        }
+      }
+    },
+    "participants.add.accessibilityLabel": {
+      "comment": "VoiceOver label of the field that adds a participant.",
+      "extractionState": "manual",
+      "localizations": {
+        "pt-BR": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Adicionar participante"
+          }
+        }
+      }
+    },
+    "participants.add.placeholder": {
+      "comment": "Placeholder of the field that adds a participant.",
+      "extractionState": "manual",
+      "localizations": {
+        "pt-BR": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Nome do participante"
+          }
+        }
+      }
+    },
+    "participants.contacts.button": {
+      "comment": "Button that opens the contact picker to add a participant.",
+      "extractionState": "manual",
+      "localizations": {
+        "pt-BR": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Adicionar dos contatos"
+          }
+        }
+      }
+    },
+    "participants.error.contactWithoutName": {
+      "comment": "Error when the chosen contact has no name.",
+      "extractionState": "manual",
+      "localizations": {
+        "pt-BR": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Este contato não tem nome."
+          }
+        }
+      }
+    },
+    "participants.error.duplicate": {
+      "comment": "Error when a participant name repeats another one.",
+      "extractionState": "manual",
+      "localizations": {
+        "pt-BR": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Já existe um participante com esse nome."
+          }
+        }
+      }
+    },
+    "participants.error.limit": {
+      "comment": "Error when the group reached the participant limit. %lld is the limit.",
+      "extractionState": "manual",
+      "localizations": {
+        "pt-BR": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "O grupo já tem o máximo de %lld participantes."
+          }
+        }
+      }
+    },
+    "participants.error.nameTooLong": {
+      "comment": "Error when a participant name is too long. %lld is the character limit.",
+      "extractionState": "manual",
+      "localizations": {
+        "pt-BR": {
+          "variations": {
+            "plural": {
+              "one": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "Use no máximo %lld caractere."
+                }
+              },
+              "other": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "Use no máximo %lld caracteres."
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "participants.footer.count": {
+      "comment": "Footer of the participants list. %lld is the number of participants, including the organizer.",
+      "extractionState": "manual",
+      "localizations": {
+        "pt-BR": {
+          "variations": {
+            "plural": {
+              "one": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "%lld participante · mínimo 3, máximo 50"
+                }
+              },
+              "other": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "%lld participantes · mínimo 3, máximo 50"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "participants.next": {
+      "comment": "Button that goes to the review step.",
+      "extractionState": "manual",
+      "localizations": {
+        "pt-BR": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Revisar"
+          }
+        }
+      }
+    },
+    "participants.organizer.placeholder": {
+      "comment": "Hint on the organizer's row while their name is empty.",
+      "extractionState": "manual",
+      "localizations": {
+        "pt-BR": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Toque para informar seu nome"
+          }
+        }
+      }
+    },
+    "participants.organizer.tag": {
+      "comment": "Tag on the organizer's row.",
+      "extractionState": "manual",
+      "localizations": {
+        "pt-BR": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Você"
+          }
+        }
+      }
+    },
+    "participants.restrictions.none": {
+      "comment": "Participant row subtitle when nobody is restricted from drawing them.",
+      "extractionState": "manual",
+      "localizations": {
+        "pt-BR": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Sem restrições"
+          }
+        }
+      }
+    },
+    "participants.restrictions.summary": {
+      "comment": "Participant row subtitle. %@ is the list of names, such as Ana e Bruno.",
+      "extractionState": "manual",
+      "localizations": {
+        "pt-BR": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Não pode ser tirado(a) por: %@"
+          }
+        }
+      }
+    },
+    "participants.section.others": {
+      "comment": "Header of the section with the other participants.",
+      "extractionState": "manual",
+      "localizations": {
+        "pt-BR": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Participantes"
+          }
+        }
+      }
+    },
+    "participants.section.you": {
+      "comment": "Header of the section with the organizer.",
+      "extractionState": "manual",
+      "localizations": {
+        "pt-BR": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Você"
+          }
+        }
+      }
+    },
+    "participants.title": {
+      "comment": "Title of step 2 of the group creation flow.",
+      "extractionState": "manual",
+      "localizations": {
+        "pt-BR": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Participantes"
+          }
+        }
+      }
+    },
     "recovery.alreadyHere": {
       "comment": "Message shown when the recovery link is opened on the iPhone that already manages the group.",
       "extractionState": "manual",

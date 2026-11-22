@@ -8,6 +8,7 @@ enum IconToken: String, CaseIterable {
     case participating = "person.2"
     case disclosure = "chevron.right"
     case contacts = "person.crop.circle"
+    case addContact = "person.crop.circle.badge.plus"
     case remove = "xmark"
     case success = "checkmark.circle"
     case locked = "lock"
