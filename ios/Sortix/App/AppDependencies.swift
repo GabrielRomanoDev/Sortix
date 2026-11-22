@@ -7,6 +7,7 @@ import Foundation
 struct AppDependencies {
     let authService: any AuthServiceProtocol
     let drawService: any DrawServiceProtocol
+    let settingsStore: any LocalSettingsStoreProtocol
     let crashReporter: any CrashReporterProtocol
     let locale: Locale
 }

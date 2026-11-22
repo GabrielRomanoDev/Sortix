@@ -1,6 +1,54 @@
 {
   "sourceLanguage": "pt-BR",
   "strings": {
+    "about.button.accessibilityLabel": {
+      "comment": "Accessibility label of the info button that opens the About menu on the group list.",
+      "extractionState": "manual",
+      "localizations": {
+        "pt-BR": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Sobre o app"
+          }
+        }
+      }
+    },
+    "about.menu.privacy": {
+      "comment": "About menu item that opens the privacy policy page.",
+      "extractionState": "manual",
+      "localizations": {
+        "pt-BR": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Política de privacidade"
+          }
+        }
+      }
+    },
+    "about.menu.support": {
+      "comment": "About menu item that opens the help and support page.",
+      "extractionState": "manual",
+      "localizations": {
+        "pt-BR": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ajuda e suporte"
+          }
+        }
+      }
+    },
+    "about.menu.version": {
+      "comment": "Disabled About menu item showing the app version. %@ is the version number, such as 1.0.",
+      "extractionState": "manual",
+      "localizations": {
+        "pt-BR": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Versão %@"
+          }
+        }
+      }
+    },
     "common.action.cancel": {
       "comment": "Button that cancels the current flow or dialog.",
       "extractionState": "manual",
@@ -201,6 +249,18 @@
           "stringUnit": {
             "state": "translated",
             "value": "Nenhum grupo ainda"
+          }
+        }
+      }
+    },
+    "groupList.error.message": {
+      "comment": "Error state title on the group list when the groups cannot be loaded.",
+      "extractionState": "manual",
+      "localizations": {
+        "pt-BR": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Não foi possível carregar seus grupos."
           }
         }
       }

@@ -1,3 +1,4 @@
+import SafariServices
 import UIKit
 
 /// Root coordinator. Lives as long as the scene, owns the main navigation and starts the creation
@@ -21,11 +22,19 @@ final class AppCoordinator: Coordinator {
     // MARK: - Scenes
 
     private func makeGroupListScene() -> UIViewController {
-        let viewModel = GroupListViewModel()
+        let viewModel = GroupListViewModel(
+            authService: dependencies.authService,
+            crashReporter: dependencies.crashReporter,
+            appVersion: appVersion()
+        )
         viewModel.onNavigation = { [weak self] navigation in
             self?.handle(navigation)
         }
         return GroupListViewController(viewModel: viewModel)
+    }
+
+    private func appVersion() -> String {
+        Bundle.main.object(forInfoDictionaryKey: "CFBundleShortVersionString") as? String ?? ""
     }
 
     // MARK: - Navigation
@@ -34,10 +43,18 @@ final class AppCoordinator: Coordinator {
         switch navigation {
         case .createGroup:
             startCreateGroupFlow()
+        case .openWebPage(let page):
+            presentSafari(for: page)
         }
     }
 
     private func startCreateGroupFlow() {
         // TODO(create-group): start CreateGroupCoordinator modally once stage 13 adds the flow.
+    }
+
+    private func presentSafari(for page: WebPage) {
+        let safari = SFSafariViewController(url: page.url)
+        safari.preferredControlTintColor = ColorToken.accent
+        router.present(safari, animated: true)
     }
 }
