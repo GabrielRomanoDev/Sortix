@@ -37,6 +37,13 @@ final class FormSectionView: UIView {
         rowCount += 1
     }
 
+    /// Hides or shows a row added with `addRow(_:)`, together with the separator above it.
+    func setRow(_ row: UIView, hidden: Bool) {
+        row.isHidden = hidden
+        guard let index = rowsStack.arrangedSubviews.firstIndex(of: row), index > 0 else { return }
+        rowsStack.arrangedSubviews[index - 1].isHidden = hidden
+    }
+
     // MARK: - Setup
 
     private func setTexts(header: String?, footer: String?) {

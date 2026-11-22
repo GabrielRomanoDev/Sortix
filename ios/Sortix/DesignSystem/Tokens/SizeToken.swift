@@ -11,6 +11,8 @@ enum SizeToken {
     static let primaryButtonMinHeight: CGFloat = 54
     /// Minimum height of form rows and text fields.
     static let rowMinHeight: CGFloat = 50
+    /// Minimum height of the text area of a `TextViewRow`, about three lines.
+    static let textViewMinHeight: CGFloat = 66
     /// Diameter of the initials badge in compact lists.
     static let avatarSmall: CGFloat = 32
     /// Diameter of the initials badge in the group status list.

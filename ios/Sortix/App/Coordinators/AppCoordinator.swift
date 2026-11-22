@@ -49,7 +49,18 @@ final class AppCoordinator: Coordinator {
     }
 
     private func startCreateGroupFlow() {
-        // TODO(create-group): start CreateGroupCoordinator modally once stage 13 adds the flow.
+        let coordinator = CreateGroupCoordinator(
+            router: NavigationRouter(navigationController: UINavigationController()),
+            presentingRouter: router,
+            dependencies: dependencies
+        )
+        // TODO(create-group-draw-review): on `.created`, start the group flow (stage 16).
+        coordinator.onFinish = { [weak self, weak coordinator] _ in
+            guard let self, let coordinator else { return }
+            removeChild(coordinator)
+        }
+        addChild(coordinator)
+        coordinator.start()
     }
 
     private func presentSafari(for page: WebPage) {

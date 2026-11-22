@@ -205,6 +205,54 @@
         }
       }
     },
+    "createGroup.discard.confirm": {
+      "comment": "Destructive button that discards the group being created.",
+      "extractionState": "manual",
+      "localizations": {
+        "pt-BR": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Descartar"
+          }
+        }
+      }
+    },
+    "createGroup.discard.keepEditing": {
+      "comment": "Button that closes the discard alert and keeps the creation flow open.",
+      "extractionState": "manual",
+      "localizations": {
+        "pt-BR": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Continuar editando"
+          }
+        }
+      }
+    },
+    "createGroup.discard.message": {
+      "comment": "Message of the alert shown when leaving the creation flow with data filled in.",
+      "extractionState": "manual",
+      "localizations": {
+        "pt-BR": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Os dados preenchidos serão perdidos."
+          }
+        }
+      }
+    },
+    "createGroup.discard.title": {
+      "comment": "Title of the alert shown when leaving the creation flow with data filled in.",
+      "extractionState": "manual",
+      "localizations": {
+        "pt-BR": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Descartar grupo?"
+          }
+        }
+      }
+    },
     "groupList.createButton.accessibilityLabel": {
       "comment": "VoiceOver label of the + button in the group list navigation bar.",
       "extractionState": "manual",
@@ -273,6 +321,210 @@
           "stringUnit": {
             "state": "translated",
             "value": "Seus grupos"
+          }
+        }
+      }
+    },
+    "groupRules.eventDate.error.past": {
+      "comment": "Error below the event date when it is before today.",
+      "extractionState": "manual",
+      "localizations": {
+        "pt-BR": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "A data não pode ser anterior a hoje."
+          }
+        }
+      }
+    },
+    "groupRules.eventDate.toggle": {
+      "comment": "Switch that adds an event date. Also the VoiceOver label of the date picker.",
+      "extractionState": "manual",
+      "localizations": {
+        "pt-BR": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Data da confraternização"
+          }
+        }
+      }
+    },
+    "groupRules.location.label": {
+      "comment": "Label of the event location field.",
+      "extractionState": "manual",
+      "localizations": {
+        "pt-BR": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Local"
+          }
+        }
+      }
+    },
+    "groupRules.location.placeholder": {
+      "comment": "Placeholder of the event location field.",
+      "extractionState": "manual",
+      "localizations": {
+        "pt-BR": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ex.: Casa da vó"
+          }
+        }
+      }
+    },
+    "groupRules.maxValue.error.tooHigh": {
+      "comment": "Error below the maximum value when it is above the limit. %@ is the formatted limit, such as R$ 100.000,00.",
+      "extractionState": "manual",
+      "localizations": {
+        "pt-BR": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "O valor máximo permitido é %@."
+          }
+        }
+      }
+    },
+    "groupRules.maxValue.error.zero": {
+      "comment": "Error below the maximum value when it is zero.",
+      "extractionState": "manual",
+      "localizations": {
+        "pt-BR": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Informe um valor maior que zero."
+          }
+        }
+      }
+    },
+    "groupRules.maxValue.label": {
+      "comment": "Label of the maximum gift value field.",
+      "extractionState": "manual",
+      "localizations": {
+        "pt-BR": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Valor máximo"
+          }
+        }
+      }
+    },
+    "groupRules.maxValue.placeholder": {
+      "comment": "Placeholder of the maximum gift value field when no value is set.",
+      "extractionState": "manual",
+      "localizations": {
+        "pt-BR": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Sem limite"
+          }
+        }
+      }
+    },
+    "groupRules.name.accessibilityLabel": {
+      "comment": "VoiceOver label of the required group name field.",
+      "extractionState": "manual",
+      "localizations": {
+        "pt-BR": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Nome do grupo, obrigatório"
+          }
+        }
+      }
+    },
+    "groupRules.name.error.empty": {
+      "comment": "Error below the group name when it is empty.",
+      "extractionState": "manual",
+      "localizations": {
+        "pt-BR": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Informe o nome do grupo."
+          }
+        }
+      }
+    },
+    "groupRules.name.label": {
+      "comment": "Label of the group name field.",
+      "extractionState": "manual",
+      "localizations": {
+        "pt-BR": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Nome do grupo"
+          }
+        }
+      }
+    },
+    "groupRules.name.placeholder": {
+      "comment": "Placeholder of the group name field.",
+      "extractionState": "manual",
+      "localizations": {
+        "pt-BR": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ex.: Família 2026"
+          }
+        }
+      }
+    },
+    "groupRules.notes.label": {
+      "comment": "Label of the group notes field.",
+      "extractionState": "manual",
+      "localizations": {
+        "pt-BR": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Observações"
+          }
+        }
+      }
+    },
+    "groupRules.notes.placeholder": {
+      "comment": "Placeholder of the group notes field.",
+      "extractionState": "manual",
+      "localizations": {
+        "pt-BR": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ex.: valor mínimo, tema, horário"
+          }
+        }
+      }
+    },
+    "groupRules.section.group": {
+      "comment": "Header of the section with the group name.",
+      "extractionState": "manual",
+      "localizations": {
+        "pt-BR": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Grupo"
+          }
+        }
+      }
+    },
+    "groupRules.section.rules": {
+      "comment": "Header of the section with the optional group rules.",
+      "extractionState": "manual",
+      "localizations": {
+        "pt-BR": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Regras (opcional)"
+          }
+        }
+      }
+    },
+    "groupRules.title": {
+      "comment": "Title of step 1 of the group creation flow.",
+      "extractionState": "manual",
+      "localizations": {
+        "pt-BR": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Novo grupo"
           }
         }
       }
