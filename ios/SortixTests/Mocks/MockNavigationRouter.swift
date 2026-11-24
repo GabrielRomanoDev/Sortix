@@ -21,6 +21,11 @@ final class MockNavigationRouter: NavigationRouting {
         popHandlers[ObjectIdentifier(viewController)] = onPop
     }
 
+    func pop(animated: Bool) {
+        guard let top = pushedViewControllers.popLast() else { return }
+        popHandlers.removeValue(forKey: ObjectIdentifier(top))?()
+    }
+
     func popToRoot(animated: Bool) {
         pushedViewControllers = []
     }

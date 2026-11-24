@@ -529,6 +529,78 @@
         }
       }
     },
+    "participantDetail.name.placeholder": {
+      "comment": "Placeholder of a participant's name field.",
+      "extractionState": "manual",
+      "localizations": {
+        "pt-BR": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Nome"
+          }
+        }
+      }
+    },
+    "participantDetail.organizer.namePlaceholder": {
+      "comment": "Placeholder and title for the organizer while their name is empty.",
+      "extractionState": "manual",
+      "localizations": {
+        "pt-BR": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Seu nome"
+          }
+        }
+      }
+    },
+    "participantDetail.restrictions.empty": {
+      "comment": "Shown in the restrictions section when the group has no other participants.",
+      "extractionState": "manual",
+      "localizations": {
+        "pt-BR": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Adicione outros participantes para definir restrições."
+          }
+        }
+      }
+    },
+    "participantDetail.restrictions.footer": {
+      "comment": "Footer explaining what restrictions are for.",
+      "extractionState": "manual",
+      "localizations": {
+        "pt-BR": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Use para evitar que alguém tire quem vai comprar o presente dele. Ex.: uma criança não deve tirar a própria mãe."
+          }
+        }
+      }
+    },
+    "participantDetail.section.name": {
+      "comment": "Header of the name section in the participant detail. Also the VoiceOver label of the name field.",
+      "extractionState": "manual",
+      "localizations": {
+        "pt-BR": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Nome"
+          }
+        }
+      }
+    },
+    "participantDetail.section.restrictions": {
+      "comment": "Header of the restrictions list. %@ is the participant's name.",
+      "extractionState": "manual",
+      "localizations": {
+        "pt-BR": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Quem não pode tirar %@?"
+          }
+        }
+      }
+    },
     "participants.action.remove": {
       "comment": "Swipe action that removes a participant.",
       "extractionState": "manual",

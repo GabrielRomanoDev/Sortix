@@ -9,6 +9,8 @@ protocol NavigationRouting: AnyObject {
     func setRoot(_ viewController: UIViewController, animated: Bool)
     /// `onPop` runs when the screen leaves the stack through the Back button or the swipe gesture.
     func push(_ viewController: UIViewController, animated: Bool, onPop: (() -> Void)?)
+    /// Removes the top screen. Its `onPop` runs, as with the Back button.
+    func pop(animated: Bool)
     func popToRoot(animated: Bool)
     func present(_ viewController: UIViewController, animated: Bool)
     func dismiss(animated: Bool, completion: (() -> Void)?)

@@ -62,6 +62,18 @@ final class CreateGroupCoordinator: NSObject, Coordinator {
         return ParticipantsViewController(viewModel: viewModel)
     }
 
+    private func makeParticipantDetailScene(for participantID: ParticipantID) -> UIViewController {
+        let viewModel = ParticipantDetailViewModel(
+            participantID: participantID,
+            draftStore: draftStore,
+            settingsStore: dependencies.settingsStore
+        )
+        viewModel.onNavigation = { [weak self] navigation in
+            self?.handle(navigation)
+        }
+        return ParticipantDetailViewController(viewModel: viewModel)
+    }
+
     // MARK: - Navigation
 
     private func handle(_ navigation: GroupRulesViewModel.Navigation) {
@@ -75,14 +87,20 @@ final class CreateGroupCoordinator: NSObject, Coordinator {
 
     private func handle(_ navigation: ParticipantsViewModel.Navigation) {
         switch navigation {
-        case .openParticipant:
-            // TODO(create-group-restrictions): push the participant detail once stage 15 adds it.
-            break
+        case .openParticipant(let participantID):
+            router.push(makeParticipantDetailScene(for: participantID), animated: true, onPop: nil)
         case .pickContact(let onPicked):
             presentContactPicker(onPicked: onPicked)
         case .review:
             // TODO(create-group-draw-review): push the review once stage 16 adds it.
             break
+        }
+    }
+
+    private func handle(_ navigation: ParticipantDetailViewModel.Navigation) {
+        switch navigation {
+        case .done:
+            router.pop(animated: true)
         }
     }
 

@@ -27,6 +27,10 @@ final class NavigationRouter: NSObject, NavigationRouting {
         navigationController.pushViewController(viewController, animated: animated)
     }
 
+    func pop(animated: Bool) {
+        navigationController.popViewController(animated: animated)
+    }
+
     func popToRoot(animated: Bool) {
         navigationController.popToRootViewController(animated: animated)
     }
