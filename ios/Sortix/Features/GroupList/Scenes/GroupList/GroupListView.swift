@@ -43,15 +43,32 @@ final class GroupListView: UIView {
 
     private func setUpLayout() {
         backgroundColor = ColorToken.background
+        // `UIContentUnavailableView` keeps the height of its content, so it is centered inside a
+        // plain container that takes all the space between the header and the button. Pinning it
+        // to that space directly would stretch the header instead.
         let footerView = FooterActionView(button: createButton)
-        let stack = UIStackView(arrangedSubviews: [headerView, stateView, footerView])
-        stack.axis = .vertical
-        addSubviewsForAutoLayout(stack)
+        let stateContainer = UIView()
+        stateContainer.addSubviewsForAutoLayout(stateView)
+        addSubviewsForAutoLayout(headerView, stateContainer, footerView)
         NSLayoutConstraint.activate([
-            stack.topAnchor.constraint(equalTo: safeAreaLayoutGuide.topAnchor),
-            stack.leadingAnchor.constraint(equalTo: leadingAnchor),
-            stack.trailingAnchor.constraint(equalTo: trailingAnchor),
-            stack.bottomAnchor.constraint(equalTo: keyboardLayoutGuide.topAnchor)
+            headerView.topAnchor.constraint(equalTo: safeAreaLayoutGuide.topAnchor),
+            headerView.leadingAnchor.constraint(equalTo: leadingAnchor),
+            headerView.trailingAnchor.constraint(equalTo: trailingAnchor),
+
+            stateContainer.topAnchor.constraint(equalTo: headerView.bottomAnchor),
+            stateContainer.leadingAnchor.constraint(equalTo: leadingAnchor),
+            stateContainer.trailingAnchor.constraint(equalTo: trailingAnchor),
+            stateContainer.bottomAnchor.constraint(equalTo: footerView.topAnchor),
+
+            stateView.centerYAnchor.constraint(equalTo: stateContainer.centerYAnchor),
+            stateView.leadingAnchor.constraint(equalTo: stateContainer.leadingAnchor),
+            stateView.trailingAnchor.constraint(equalTo: stateContainer.trailingAnchor),
+            stateView.topAnchor.constraint(greaterThanOrEqualTo: stateContainer.topAnchor),
+            stateView.bottomAnchor.constraint(lessThanOrEqualTo: stateContainer.bottomAnchor),
+
+            footerView.leadingAnchor.constraint(equalTo: leadingAnchor),
+            footerView.trailingAnchor.constraint(equalTo: trailingAnchor),
+            footerView.bottomAnchor.constraint(equalTo: keyboardLayoutGuide.topAnchor)
         ])
     }
 }

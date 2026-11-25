@@ -7,9 +7,11 @@ final class FooterActionView: UIView {
     init(button: UIButton) {
         super.init(frame: .zero)
         backgroundColor = ColorToken.background
-        // Keeps its own height in a vertical stack; the list or scroll view takes the rest.
-        setContentHuggingPriority(.required, for: .vertical)
-        setContentCompressionResistancePriority(.required, for: .vertical)
+        // Hugging has no effect on a view without an intrinsic size, so a weak zero height keeps this
+        // view as short as its content allows; the list or state view next to it takes the rest.
+        let compactHeight = heightAnchor.constraint(equalToConstant: 0)
+        compactHeight.priority = .fittingSizeLevel
+        compactHeight.isActive = true
         addSubviewsForAutoLayout(button)
         let insets = NSDirectionalEdgeInsets(
             top: SpacingToken.xSmall,
