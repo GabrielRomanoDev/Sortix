@@ -1,7 +1,7 @@
 import UIKit
 
-/// A multi-line text row for `FormSectionView`, with the title above the text, a placeholder and a
-/// validation message below it. Used for notes.
+/// A multi-line text row for `FormSectionView`, with an optional title above the text, a placeholder
+/// and a validation message below it. Used for notes.
 @MainActor
 final class TextViewRow: UIView {
     let textView = UITextView()
@@ -14,14 +14,16 @@ final class TextViewRow: UIView {
     private let errorLabel = InlineErrorLabel()
 
     /// - Parameters:
-    ///   - title: Visible label from the String Catalog. Also used as the accessibility label.
+    ///   - title: Visible label from the String Catalog. Leave it `nil` when the section header
+    ///     already names the field.
     ///   - placeholder: Placeholder from the String Catalog, shown while the text is empty.
-    init(title: String, placeholder: String? = nil) {
+    ///   - accessibilityLabel: Read by VoiceOver. Defaults to `title`.
+    init(title: String? = nil, placeholder: String? = nil, accessibilityLabel: String? = nil) {
         super.init(frame: .zero)
         setUpTitle()
         setUpTextView()
         setUpPlaceholder()
-        setTexts(title: title, placeholder: placeholder)
+        setTexts(title: title, placeholder: placeholder, accessibilityLabel: accessibilityLabel)
         setUpLayout()
     }
 
@@ -41,10 +43,11 @@ final class TextViewRow: UIView {
 
     // MARK: - Texts
 
-    private func setTexts(title: String, placeholder: String?) {
+    private func setTexts(title: String?, placeholder: String?, accessibilityLabel: String?) {
         titleLabel.text = title
+        titleLabel.isHidden = title == nil
         placeholderLabel.text = placeholder
-        textView.accessibilityLabel = title
+        textView.accessibilityLabel = accessibilityLabel ?? title
     }
 
     // MARK: - Setup

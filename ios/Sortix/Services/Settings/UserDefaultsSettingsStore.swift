@@ -2,12 +2,13 @@ import Foundation
 
 /// Stores the local preferences in `UserDefaults`.
 ///
-/// Only the organizer's own name and group IDs are kept here, never tokens (BR-55).
+/// Only the organizer's own name, group IDs and seen tips are kept here, never tokens (BR-55).
 @MainActor
 final class UserDefaultsSettingsStore: LocalSettingsStoreProtocol {
     private enum Key {
         static let lastOrganizerName = "lastOrganizerName"
         static let savedRecoveryLinkGroupIDs = "savedRecoveryLinkGroupIDs"
+        static let hasSeenRestrictionsTip = "hasSeenRestrictionsTip"
     }
 
     private let defaults: UserDefaults
@@ -19,6 +20,11 @@ final class UserDefaultsSettingsStore: LocalSettingsStoreProtocol {
     var lastOrganizerName: String? {
         get { defaults.string(forKey: Key.lastOrganizerName) }
         set { defaults.set(newValue, forKey: Key.lastOrganizerName) }
+    }
+
+    var hasSeenRestrictionsTip: Bool {
+        get { defaults.bool(forKey: Key.hasSeenRestrictionsTip) }
+        set { defaults.set(newValue, forKey: Key.hasSeenRestrictionsTip) }
     }
 
     func isRecoveryLinkSaved(for groupID: GroupID) -> Bool {

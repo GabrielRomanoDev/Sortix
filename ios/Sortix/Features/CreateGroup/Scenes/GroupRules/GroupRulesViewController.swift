@@ -2,7 +2,11 @@ import UIKit
 
 final class GroupRulesViewController: UIViewController {
     private let viewModel: GroupRulesViewModel
-    private lazy var rulesView = GroupRulesView(currencyCode: viewModel.currencyCode, locale: viewModel.locale)
+    private lazy var rulesView = GroupRulesView(
+        currencyCode: viewModel.currencyCode,
+        locale: viewModel.locale,
+        onNext: { [weak self] in self?.viewModel.didTapNext() }
+    )
     /// The last state shown, used to announce only errors that just appeared.
     private var renderedState: GroupRulesState?
 
@@ -33,19 +37,17 @@ final class GroupRulesViewController: UIViewController {
 
     // MARK: - Setup
 
+    /// The bar shows the step; the title lives in the header.
     private func setUpNavigationItem() {
-        title = String(localized: .groupRulesTitle)
-        navigationItem.largeTitleDisplayMode = .never
+        navigationItem.applyPlainAppearance()
+        navigationItem.title = String(localized: .createGroupStep(1, CreateGroupStep.total))
+        navigationItem.backButtonTitle = String(localized: .commonActionBack)
+        rulesView.headerView.setTexts(title: String(localized: .groupRulesTitle))
 
         let cancelAction = UIAction { [weak self] _ in
             self?.viewModel.didTapCancel()
         }
         navigationItem.leftBarButtonItem = UIBarButtonItem(systemItem: .cancel, primaryAction: cancelAction)
-
-        let nextAction = UIAction(title: String(localized: .commonActionNext)) { [weak self] _ in
-            self?.viewModel.didTapNext()
-        }
-        navigationItem.rightBarButtonItem = UIBarButtonItem(primaryAction: nextAction)
     }
 
     private func setUpFieldActions() {
@@ -83,7 +85,7 @@ final class GroupRulesViewController: UIViewController {
         renderEventDate(state)
         rulesView.locationRow.configure(text: state.location, errorMessage: tooLongMessage(for: state.locationError))
         rulesView.notesRow.configure(text: state.notes, errorMessage: tooLongMessage(for: state.notesError))
-        navigationItem.rightBarButtonItem?.isEnabled = state.isNextEnabled
+        rulesView.nextButton.isEnabled = state.isNextEnabled
         announceNewError(in: state)
         renderedState = state
     }

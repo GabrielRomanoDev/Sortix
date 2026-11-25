@@ -480,12 +480,13 @@ sequenceDiagram
 
 ### 5.0 Conventions shared by all screens
 
-- **Look:** iOS grouped lists (`insetGrouped`), cards in `secondarySystemGroupedBackground` over `systemGroupedBackground` and one accent color (`ColorToken.accent`). Automatic dark mode through semantic colors.
+- **Look:** follows the screen mockups ("Amigo Secreto – Telas v1" design canvas): iOS grouped lists (`insetGrouped`), cards in `secondarySystemGroupedBackground` over `systemGroupedBackground` and one accent color (`ColorToken.accent`). People show with a colored initial (`AvatarView`) and, inside cards, as a gray capsule with a mini avatar (`PersonPillView`). Automatic dark mode through semantic colors.
+- **Screen top:** a plain navigation bar (same background as the screen, no hairline, `UINavigationItem.applyPlainAppearance()`) followed by a `ScreenHeaderView` with the bold title. In the creation flow the bar title is the step ("Etapa 1 de 3") and the header has the `StepProgressView` with three segments. The header stays fixed while the content scrolls.
 - **Lists with dynamic data:** `UICollectionView` with `UICollectionViewCompositionalLayout.list(using:)` and `UICollectionLayoutListConfiguration(appearance: .insetGrouped)`, `UICollectionViewDiffableDataSource`, `CellRegistration` with `UICollectionViewListCell` and `UIListContentConfiguration`.
 - **Forms with fixed fields:** `FormScrollView` (`UIScrollView` with a vertical `UIStackView`) built from Design System components (`FormSectionView`, `TextFieldRow`, `TextViewRow`, `ToggleRow`, `DatePickerRow`, `CurrencyFieldRow`), which reproduce the `insetGrouped` look. This avoids cell reuse problems with fields being edited. The keyboard is handled with `view.keyboardLayoutGuide`.
-- **Empty, loading and error states:** `UIContentUnavailableConfiguration` (iOS 17) applied to the ViewController's `contentUnavailableConfiguration`.
-- **Primary button:** `PrimaryButton` (`UIButton.Configuration.filled()`, size `.large`), pinned to the bottom safe area. During operations, it uses `configuration.showsActivityIndicator = true`.
-- **Titles:** large title (`prefersLargeTitles`) only on the group list; other screens use the standard title.
+- **Empty, loading and error states:** `UIContentUnavailableConfiguration` (iOS 17), shown in a `UIContentUnavailableView` placed below the screen header.
+- **Primary button:** `PrimaryButton` (`UIButton.Configuration.filled()`, size `.large`, 54 pt minimum height), full width inside a `FooterActionView` at the bottom of the screen, above the keyboard (`keyboardLayoutGuide`). The `.destructive` style (red text on a card background) is used for "Remover participante". During operations, it uses `configuration.showsActivityIndicator = true`.
+- **Titles:** in the `ScreenHeaderView`, never in the navigation bar: `largeTitle` (34 bold) on the group list and `title` (28 bold) on the other screens.
 - **External links** (suggestions, privacy, support): opened in `SFSafariViewController`.
 - **Texts:** all through String Catalog keys. The tables below list the key and the pt-BR text. Shared keys are in 5.12.
 - **Accessibility:** each screen lists the items from section 6.10 that apply to it. A screen is only done when those items pass the Accessibility Inspector.
@@ -498,9 +499,9 @@ sequenceDiagram
 
 **Components**
 
-- `UINavigationController` with a large title.
-- Right button: `UIBarButtonItem(systemItem: .add)` to create a group.
-- Left button: `UIBarButtonItem` with the `info.circle` symbol and an "About" `UIMenu`: "Política de privacidade", "Ajuda e suporte" and the app version (disabled item).
+- Header: "Seus grupos" (`largeTitle`), the subtitle "Seus sorteios de fim de ano" and a round accent "+" button on the right that creates a group.
+- Navigation bar (plain): only the left button, a `UIBarButtonItem` with the `info.circle` symbol and an "About" `UIMenu`: "Política de privacidade", "Ajuda e suporte" and the app version (disabled item).
+- Bottom: `PrimaryButton` "Criar novo grupo" with the `plus` symbol.
 - `UICollectionView` as an `insetGrouped` list with two sections (`organized`, `participating`), `UIListContentConfiguration.groupedHeader()` headers and `subtitleCell()` cells with the `.disclosureIndicator()` accessory.
 - Empty sections are hidden.
 - `UIRefreshControl` to force a new read.
@@ -510,7 +511,7 @@ sequenceDiagram
 | State | What shows |
 |---|---|
 | Loading | `UIContentUnavailableConfiguration.loading()` |
-| Empty | `gift` symbol, title, text and "Criar grupo" button |
+| Empty | `gift` symbol in the accent color, title and text (the bottom button already creates a group) |
 | Error | `wifi.exclamationmark` or `exclamationmark.triangle` symbol, message and "Tentar novamente" button |
 | Success | List with the sections that have items |
 
@@ -519,13 +520,15 @@ sequenceDiagram
 | Key | pt-BR text |
 |---|---|
 | `groupList.title` | Seus grupos |
+| `groupList.subtitle` | Seus sorteios de fim de ano |
+| `groupList.createButton.title` | Criar novo grupo |
+| `groupList.backButton` | Grupos |
 | `groupList.section.organized` | Organizados por você |
 | `groupList.section.participating` | Participando |
 | `groupList.cell.subtitle` | %1$@ · %2$lld participantes (plural on the 2nd argument: "1 participante") |
 | `groupList.cell.noDate` | Sem data definida |
 | `groupList.empty.title` | Nenhum grupo ainda |
 | `groupList.empty.message` | Crie um amigo secreto ou abra o link que você recebeu. |
-| `groupList.empty.action` | Criar grupo |
 | `groupList.createButton.accessibilityLabel` | Criar grupo |
 | `groupList.error.message` | Não foi possível carregar seus grupos. |
 | `about.button.accessibilityLabel` | Sobre o app |
@@ -535,7 +538,7 @@ sequenceDiagram
 
 **Navigation**
 
-- "+" or "Criar grupo" → `AppCoordinator` starts the `CreateGroupCoordinator` (modal).
+- "+" or "Criar novo grupo" → `AppCoordinator` starts the `CreateGroupCoordinator` (modal).
 - Organized group → `GroupCoordinator(.organizer(groupId))` → screen 5.
 - Joined group → `GroupCoordinator(.participant(token))` → screen 6.
 - "About" menu items → `SFSafariViewController` with `/privacidade` or `/suporte`.
@@ -550,11 +553,14 @@ sequenceDiagram
 
 **Components**
 
-- Navigation bar: "Cancelar" on the left and "Próximo" on the right (disabled until the name is valid).
-- `FormScrollView` with two sections:
-  - "Grupo": `TextFieldRow` for the name (`returnKeyType = .next`, `autocapitalizationType = .sentences`).
-  - "Regras (opcional)": `CurrencyFieldRow` for the maximum value (`keyboardType = .numberPad`, digits fill the cents from right to left and the value is formatted with `Decimal.FormatStyle.Currency`), `ToggleRow` "Data da confraternização" which, when on, shows a `DatePickerRow` (`UIDatePicker` with `datePickerMode = .date`, `preferredDatePickerStyle = .compact`, `minimumDate` = today), `TextFieldRow` for the location and `TextViewRow` for the notes.
+- Navigation bar (plain): "Cancelar" on the left and the title "Etapa 1 de 3".
+- Header: "Novo grupo" with the progress bar on the first segment.
+- `FormScrollView` with three sections:
+  - "Nome do grupo": `TextFieldRow` for the name (`returnKeyType = .next`, `autocapitalizationType = .sentences`).
+  - "Regras (opcional)": `CurrencyFieldRow` for the maximum value (`keyboardType = .numberPad`, digits fill the cents from right to left and the value is formatted with `Decimal.FormatStyle.Currency`), `ToggleRow` "Data da confraternização" which, when on, shows a `DatePickerRow` "Data" with the compact picker on the right (`UIDatePicker` with `datePickerMode = .date`, `preferredDatePickerStyle = .compact`, `minimumDate` = today) and `TextFieldRow` for the location.
+  - "Observações": `TextViewRow` without a title, with the footer "Todos os participantes veem estas regras."
 - Error messages (`InlineErrorLabel`) below each field.
+- Bottom: `PrimaryButton` "Próximo: participantes" (disabled until the name is valid).
 
 **States**
 
@@ -570,7 +576,6 @@ There is no loading: the screen does not access the network.
 | Key | pt-BR text |
 |---|---|
 | `groupRules.title` | Novo grupo |
-| `groupRules.section.group` | Grupo |
 | `groupRules.name.label` | Nome do grupo |
 | `groupRules.name.placeholder` | Ex.: Família 2026 |
 | `groupRules.section.rules` | Regras (opcional) |
@@ -581,6 +586,11 @@ There is no loading: the screen does not access the network.
 | `groupRules.location.placeholder` | Ex.: Casa da vó |
 | `groupRules.notes.label` | Observações |
 | `groupRules.notes.placeholder` | Ex.: valor mínimo, tema, horário |
+| `groupRules.notes.footer` | Todos os participantes veem estas regras. |
+| `groupRules.eventDate.label` | Data |
+| `groupRules.next` | Próximo: participantes |
+| `createGroup.step` | Etapa %1$lld de %2$lld |
+| `common.action.back` | Voltar (back button title of the next screen) |
 | `groupRules.name.error.empty` | Informe o nome do grupo. |
 | `groupRules.maxValue.error.zero` | Informe um valor maior que zero. |
 | `groupRules.maxValue.error.tooHigh` | O valor máximo permitido é %@. |
@@ -591,7 +601,7 @@ There is no loading: the screen does not access the network.
 
 **Navigation**
 
-- "Próximo" → screen 3.
+- "Próximo: participantes" → screen 3.
 - "Cancelar" or swiping the modal down → if there is data, confirmation; then the coordinator dismisses the modal and finishes. The modal uses `isModalInPresentation = true` when there is data, and the coordinator handles `presentationControllerDidAttemptToDismiss` to show the confirmation.
 
 **Accessibility:** every field has an `accessibilityLabel` equal to the visible label (group name: "Nome do grupo, obrigatório"); the `UIDatePicker` and the `UISwitch` are labeled "Data da confraternização"; when an error appears, `UIAccessibility.post(notification: .layoutChanged, argument: errorLabel)`.
@@ -604,49 +614,62 @@ There is no loading: the screen does not access the network.
 
 **Components**
 
-- Navigation bar: standard Back button and "Revisar" on the right.
-- `UICollectionView` as an `insetGrouped` list with two sections:
-  - "Adicionar participantes": a text field to add (`TextFieldListCell`, `returnKeyType = .done`; on confirm, it adds, clears and keeps focus), the error row right below the field when the last name could not be added (repeated name, typed or from a contact; limit reached; contact without a name; name too long), and the "Adicionar dos contatos" row (accent text with the `person.crop.circle.badge.plus` symbol).
-  - "Participantes": one card per person (`ParticipantCardCell`), each in its own list section so it has its own background and space around it, the organizer first with "(Você)" after the name. Each card has a fixed padding on every side and grows with its content. The first line shows the name on the left (or, for the organizer without a name, the hint "Toque para informar seu nome" in `secondaryLabel`) and the pencil on the right, vertically centered with it; below, when there are restrictions, "Não pode tirar" followed by one name per line with the `arrow.turn.down.right` symbol. A name with an error shows the message in red below it. Tapping anywhere on the card, including a restriction name, opens that person's detail (screen 3b). Swiping left shows "Remover" (not on the organizer). The last card's footer shows the count ("8 participantes · mínimo 3, máximo 50").
+- Navigation bar (plain): "‹ Voltar" and the title "Etapa 2 de 3". The back button of screen 3b reads "Participantes".
+- Header: "Participantes" with the progress bar on the second segment.
+- Add row (`AddParticipantBar`), fixed above the list: the "Nome do participante" field in a white rounded box (`returnKeyType = .done`; on confirm, it adds, clears and keeps focus), a square button with the `person` symbol that opens the contacts and the accent "Adicionar" button. Right below, the error when the last name could not be added (repeated name, typed or from a contact; limit reached; contact without a name; name too long).
+- `UICollectionView` with one card per person (`ParticipantCardCell`), each in its own `insetGrouped` list section so it has its own background and space around it, the organizer first. The first section's header (`ListSectionHeaderView`) shows "5 PARTICIPANTES" on the left and "Toque para editar" on the right; the last card's footer shows the limits ("Mínimo de 3 e máximo de 50 participantes.").
+- Each card has a fixed padding on every side and grows with its content. The first line shows the avatar, the name (or, for the organizer without a name, the hint "Toque para informar seu nome" in the secondary color), "Você" on the right for the organizer and a chevron, all vertically centered. Below, aligned with the name: an error in red, when there is one, and, when there are restrictions, the `nosign` symbol with "Não pode tirar" in `ColorToken.restriction` followed by one `PersonPillView` per person, stacked vertically. Avatar colors follow the position in the group (`avatarColors(at:)`). Tapping anywhere on the card opens that person's detail (screen 3b). Swiping left shows "Remover" (not on the organizer).
+- Bottom: `PrimaryButton` "Revisar e sortear".
+- Restrictions tip (`RestrictionsTipViewController`): the first time the screen appears on the device, a centered white card (30 pt corners) over the dimmed screen, presented by the coordinator with `.overFullScreen` and `.crossDissolve`. It shows an example card (Lucas, "Não pode tirar", Marina and Paulo) with the caption "No sorteio, Lucas nunca vai tirar Marina nem Paulo.", the title "Adicione regras ao sorteio", the text "Toque no nome de um participante para editá-lo e escolher quem ele não pode tirar no sorteio." and the "Entendido" button. "Entendido" closes it and saves `hasSeenRestrictionsTip` in `LocalSettingsStore`, so it does not show again.
 - `CNContactPickerViewController` presented by the coordinator; the ViewController only forwards the chosen name to the ViewModel.
 
 **States**
 
 | State | What shows |
 |---|---|
-| Editing | List. "Revisar" enabled with 3 or more valid participants. |
+| First access | The restrictions tip over the screen until "Entendido". |
+| Editing | List. "Revisar e sortear" enabled with 3 or more valid participants. |
 | Error | Message right below the add field (repeated name, limit reached, contact without a name, name too long) and, for names already in the list, the message in red on that card. |
-| Limit reached | Add field and contacts button disabled, with the limit message. |
+| Limit reached | Add field, contacts button and "Adicionar" disabled, with the limit message. |
 
 **Localization keys**
 
 | Key | pt-BR text |
 |---|---|
 | `participants.title` | Participantes |
-| `participants.organizer.tag` | (Você) |
+| `participants.organizer.tag` | Você |
 | `participants.organizer.placeholder` | Toque para informar seu nome |
-| `participants.section.add` | Adicionar participantes |
-| `participants.section.others` | Participantes |
 | `participants.add.placeholder` | Nome do participante |
 | `participants.add.accessibilityLabel` | Adicionar participante |
-| `participants.contacts.button` | Adicionar dos contatos |
+| `participants.contacts.button` | Adicionar dos contatos (accessibility label of the contacts button) |
+| `participants.add.button` | Adicionar |
+| `participants.header.count` | %lld participantes (plural, shown in uppercase) |
+| `participants.header.hint` | Toque para editar |
 | `participants.restrictions.title` | Não pode tirar |
-| `participants.footer.count` | %lld participantes · mínimo 3, máximo 50 (plural) |
+| `participants.footer.limits` | Mínimo de %1$lld e máximo de %2$lld participantes. |
 | `participants.error.duplicate` | Já existe um participante com esse nome. |
 | `participants.error.limit` | O grupo já tem o máximo de %lld participantes. |
 | `participants.error.contactWithoutName` | Este contato não tem nome. |
 | `participants.error.nameTooLong` | Use no máximo %lld caracteres. |
 | `participants.action.remove` | Remover |
-| `participants.next` | Revisar |
+| `participants.next` | Revisar e sortear |
+| `restrictionsTip.title` | Adicione regras ao sorteio |
+| `restrictionsTip.message` | Toque no nome de um participante para editá-lo e escolher quem ele não pode tirar no sorteio. |
+| `restrictionsTip.example.giver` | Lucas |
+| `restrictionsTip.example.firstReceiver` | Marina |
+| `restrictionsTip.example.secondReceiver` | Paulo |
+| `restrictionsTip.example.caption` | No sorteio, Lucas nunca vai tirar Marina nem Paulo. |
+| `restrictionsTip.confirm` | Entendido |
 
 **Navigation**
 
 - Tapping the organizer or a participant → screen 3b.
-- "Adicionar dos contatos" → `CNContactPickerViewController`.
-- "Revisar" → screen 4.
+- Contacts button → `CNContactPickerViewController`.
+- "Revisar e sortear" → screen 4.
+- First appearance → restrictions tip; "Entendido" closes it.
 - Back → screen 2, with the participants preserved.
 
-**Accessibility:** the add field labeled "Nome do participante"; the contacts button has visible text; each card is read as one element with the name, the "Você" tag, any error and the restrictions ("Carla, Você, Não pode tirar, João e Karla"); the add error is announced when it appears; the "Remover" action appears in the VoiceOver actions menu (native to swipe actions).
+**Accessibility:** the add field labeled "Adicionar participante"; the contacts button labeled "Adicionar dos contatos"; each card is read as one element with the name, the "Você" tag, any error and the restrictions ("Carla, Você, Não pode tirar, João e Karla"); the add error is announced when it appears; the "Remover" action appears in the VoiceOver actions menu (native to swipe actions); in the tip, focus stays inside the card (`accessibilityViewIsModal`), the example is read as its caption and the escape gesture works like "Entendido".
 
 ### 5.4 Screen 3b — Participant detail and restrictions
 
@@ -656,13 +679,13 @@ There is no loading: the screen does not access the network.
 
 **Components**
 
-- Title: the participant's name (or the text "Seu nome" for an organizer without a name).
-- Navigation bar: "OK" on the right.
+- Navigation bar (plain): "‹ Participantes" and "Concluir" on the right.
+- Header: "Editar participante".
 - `UICollectionView` as an `insetGrouped` list:
   - "Nome" section: `TextFieldListCell` with the name.
-  - "Quem <nome> não pode tirar?" section: one cell per participant (except this one), with multiple selection. Uses `allowsMultipleSelection = true` and the `.checkmark()` accessory tied to native selection.
-  - Footer explaining how restrictions are used.
-  - "Remover participante" destructive row, in its own section, for everyone except the organizer. Removing also removes the restrictions that mention the person (BR-16) and returns to screen 3.
+  - "Quem <nome> não pode tirar?" section: one `PersonSelectionCell` per participant (except this one) with the avatar, the name and a selection circle, filled with a check in the accent color when marked. The mark comes from the state; the cell is deselected right after the tap, because the list hides separators next to selected cells.
+  - Footer with the summary: "2 pessoas selecionadas. Toque para marcar ou desmarcar." or, with nothing marked, "<nome> pode tirar qualquer pessoa."
+- Bottom: `PrimaryButton` "Remover participante" in the `.destructive` style with the `trash` symbol, for everyone except the organizer. Removing also removes the restrictions that mention the person (BR-16) and returns to screen 3.
 
 **States**
 
@@ -670,7 +693,7 @@ There is no loading: the screen does not access the network.
 |---|---|
 | Editing | Name and restrictions list. |
 | No other participants | The restrictions section shows the message to add participants first. |
-| Name error | Message below the field; "OK" disabled. |
+| Name error | Message below the field; "Concluir" disabled. |
 
 **Localization keys**
 
@@ -680,13 +703,16 @@ There is no loading: the screen does not access the network.
 | `participantDetail.name.placeholder` | Nome |
 | `participantDetail.organizer.namePlaceholder` | Seu nome |
 | `participantDetail.section.restrictions` | Quem %@ não pode tirar? |
-| `participantDetail.restrictions.footer` | Marque quem essa pessoa não pode tirar no sorteio. Ex.: uma criança não deve tirar a própria mãe. |
+| `participantDetail.title` | Editar participante |
+| `participantDetail.done` | Concluir |
+| `participantDetail.restrictions.summary` | %lld pessoas selecionadas. Toque para marcar ou desmarcar. (plural) |
+| `participantDetail.restrictions.none` | %@ pode tirar qualquer pessoa. |
 | `participantDetail.restrictions.empty` | Adicione outros participantes para definir restrições. |
 | `participantDetail.remove` | Remover participante |
 
-**Navigation:** "OK" or Back → screen 3. Changes are written to the `CreateGroupDraftStore` as soon as they are made.
+**Navigation:** "Concluir" or Back → screen 3. Changes are written to the `CreateGroupDraftStore` as soon as they are made.
 
-**Accessibility:** field labeled "Nome"; restrictions section header with the `.header` trait; selection read as "Selecionado" (native to list selection).
+**Accessibility:** field labeled "Nome"; restrictions section header with the `.header` trait; marked people read as "Selecionado" (`.selected` trait set by the cell).
 
 ### 5.5 Screen 4 — Review and draw
 
@@ -1336,6 +1362,7 @@ protocol DrawServiceProtocol: Sendable {
 @MainActor
 protocol LocalSettingsStoreProtocol: AnyObject {
     var lastOrganizerName: String? { get set }
+    var hasSeenRestrictionsTip: Bool { get set }
     func isRecoveryLinkSaved(for groupID: GroupID) -> Bool
     func markRecoveryLinkSaved(for groupID: GroupID)
 }
@@ -1382,16 +1409,16 @@ Visual values exist only in `DesignSystem/Tokens`. Screens and components use th
 
 | Token | Content |
 |---|---|
-| `ColorToken` | Brand colors in the Asset Catalog, light / dark: `accent` (`#1E6B52` / `#4CC38A`), `onAccent` (`#FFFFFF` / `#000000`), `onAccentSecondary` (`#D6EBE2` / `#103826`), `accentSoft` (`#E3F0EA` / `#1B3329`), `textSecondary` (`#5F5F66` / `#A1A1A8`), `warning` (`#8A5A12` / `#F2C46D`), `warningSoft` (`#FDF1DC` / `#3A2A10`). System colors: `background` (`systemGroupedBackground`), `surface` (`secondarySystemGroupedBackground`), `separator` (`separator`), `inactive` (`systemGray4`), `textPrimary` (`label`), `textTertiary` (`tertiaryLabel`, decorative glyphs only), `destructive` (`systemRed`). `avatarPalette`: six background / foreground pairs for participant initials (green, amber, blue, pink, purple, coral), picked with `avatarColors(at:)` |
+| `ColorToken` | Brand colors in the Asset Catalog, light / dark: `accent` (`#1E6B52` / `#4CC38A`), `onAccent` (`#FFFFFF` / `#000000`), `onAccentSecondary` (`#D6EBE2` / `#103826`), `accentSoft` (`#E3F0EA` / `#1B3329`), `textSecondary` (`#5F5F66` / `#A1A1A8`), `warning` (`#8A5A12` / `#F2C46D`), `warningSoft` (`#FDF1DC` / `#3A2A10`). System colors: `background` (`systemGroupedBackground`), `surface` (`secondarySystemGroupedBackground`), `separator` (`separator`), `inactive` (`systemGray4`), `textPrimary` (`label`), `textTertiary` (`tertiaryLabel`, decorative glyphs only), `pill` (`tertiarySystemFill`), `dimming` (black at 40%). Asset Catalog status colors: `destructive` (`#C42B2B` / `#FF6B6B`) and `restriction` (`#A33A1F` / `#FF8A6B`). `avatarPalette`: six background / foreground pairs for participant initials (green, amber, blue, pink, purple, coral), picked with `avatarColors(at:)` |
 | `TypographyToken` | One static property per style: `largeTitle` (34 bold), `title` (28 bold), `cardTitle` (20 bold), `headline` (17 semibold), `body` (17), `callout` (16), `subheadline` (15), `footnote` (13), `sectionHeader` (13 semibold), `caption` (12 semibold) and `revealName` (48 heavy). Each one is a system font scaled with `UIFontMetrics` for the matching text style (`revealName` uses `largeTitle`) |
 | `SpacingToken` | `xxSmall` 4, `xSmall` 8, `small` 12, `medium` 16, `large` 24, `xLarge` 32, `screenMargin` 20 |
-| `RadiusToken` | `tag` 8, `field` 12, `banner` 14, `card` 16, `button` 16, `hero` 22, `revealHeader` 28, always with `cornerCurve = .continuous` |
-| `SizeToken` | `minimumTouchTarget` 44, `primaryButtonMinHeight` 54, `rowMinHeight` 50, `avatarSmall` 32, `avatarMedium` 36, `iconTile` 48, `heroIcon` 72, `separatorThickness` 0.5, `progressBarHeight` 4. Heights of views with text are minimums (`greaterThanOrEqualTo`) |
+| `RadiusToken` | `tag` 8, `field` 12, `banner` 14, `card` 16, `button` 16, `hero` 22, `revealHeader` 28, `popup` 30, always with `cornerCurve = .continuous` |
+| `SizeToken` | `minimumTouchTarget` 44, `primaryButtonMinHeight` 54, `rowMinHeight` 50, `fieldButton` 50, `avatarMini` 20, `avatarSmall` 32, `avatarMedium` 36, `iconTile` 48, `heroIcon` 72, `separatorThickness` 0.5, `progressBarHeight` 4. Heights of views with text are minimums (`greaterThanOrEqualTo`) |
 | `IconToken` | Names of the SF Symbols used (technical constants, not user-facing text) |
 
 The palette follows the screen mockups ("Amigo Secreto – Telas v1" design canvas): a deep green accent with soft tinted backgrounds, cards over the grouped background and SF Pro in the system text styles.
 
-Contrast checked (WCAG AA minimum 4.5:1). Light: `accent` on white 6.40:1 and on `#F2F2F7` 5.74:1; `accent` on `accentSoft` 5.46:1; `textSecondary` on white 6.33:1 and on `#F2F2F7` 5.68:1; `warning` on `warningSoft` 5.29:1; `onAccentSecondary` on `accent` 5.13:1. Dark: `accent` on `#1C1C1E` 7.68:1 and on `#2C2C2E` 6.29:1; `accent` on `accentSoft` 6.11:1; `textSecondary` on `#1C1C1E` 6.63:1; `warning` on `warningSoft` 8.49:1; `onAccentSecondary` on `accent` 5.87:1. In dark mode, text on the accent color is black (9.48:1), because white on `#4CC38A` would fall below the minimum. Every avatar pair is above 5.2:1 in both appearances. Asset Catalog colors are accessed through the symbols Xcode generates (`UIColor(resource: .accent)`), without strings.
+Contrast checked (WCAG AA minimum 4.5:1). Light: `accent` on white 6.40:1 and on `#F2F2F7` 5.74:1; `accent` on `accentSoft` 5.46:1; `textSecondary` on white 6.33:1 and on `#F2F2F7` 5.68:1; `warning` on `warningSoft` 5.29:1; `onAccentSecondary` on `accent` 5.13:1. Dark: `accent` on `#1C1C1E` 7.68:1 and on `#2C2C2E` 6.29:1; `accent` on `accentSoft` 6.11:1; `textSecondary` on `#1C1C1E` 6.63:1; `warning` on `warningSoft` 8.49:1; `onAccentSecondary` on `accent` 5.87:1. `destructive` on white 5.63:1 and on `#F2F2F7` 5.05:1, dark on `#1C1C1E` 6.13:1; `restriction` on white 6.60:1 and on the pill 5.74:1, dark on `#1C1C1E` 7.37:1. In dark mode, text on the accent color is black (9.48:1), because white on `#4CC38A` would fall below the minimum. Every avatar pair is above 5.2:1 in both appearances. Asset Catalog colors are accessed through the symbols Xcode generates (`UIColor(resource: .accent)`), without strings.
 
 ### 6.10 Accessibility: practical rules
 
@@ -1548,10 +1575,12 @@ sortix/
 │   │   │   ├── CreateGroup/
 │   │   │   │   ├── Coordinators/
 │   │   │   │   │   ├── CreateGroupCoordinator.swift
-│   │   │   │   │   └── CreateGroupDraftStore.swift
+│   │   │   │   │   ├── CreateGroupDraftStore.swift
+│   │   │   │   │   └── CreateGroupStep.swift
 │   │   │   │   └── Scenes/
 │   │   │   │       ├── GroupRules/
 │   │   │   │       ├── Participants/
+│   │   │   │       ├── RestrictionsTip/
 │   │   │   │       ├── ParticipantDetail/
 │   │   │   │       └── DrawReview/
 │   │   │   └── Group/
@@ -1583,9 +1612,16 @@ sortix/
 │   │   │       ├── TextFieldListCell.swift
 │   │   │       ├── InlineErrorLabel.swift
 │   │   │       ├── PrimaryButton.swift
+│   │   │       ├── FooterActionView.swift
+│   │   │       ├── ScreenHeaderView.swift
+│   │   │       ├── StepProgressView.swift
+│   │   │       ├── ListSectionHeaderView.swift
+│   │   │       ├── AvatarView.swift
+│   │   │       ├── PersonPillView.swift
 │   │   │       └── WishCardContentView.swift
 │   │   ├── Extensions/
 │   │   │   ├── UIView+Constraints.swift
+│   │   │   ├── UINavigationItem+PlainAppearance.swift
 │   │   │   └── String+Trimming.swift
 │   │   └── Resources/
 │   │       ├── Localizable.xcstrings
@@ -1740,15 +1776,15 @@ Excerpt of the catalog format (illustrative; edit it through the Xcode editor):
   "sourceLanguage": "pt-BR",
   "version": "1.1",
   "strings": {
-    "participants.footer.count": {
-      "comment": "Footer of the participant list. Argument: number of participants, including the organizer.",
+    "participants.header.count": {
+      "comment": "Header of the participants list. Argument: number of participants, including the organizer.",
       "extractionState": "manual",
       "localizations": {
         "pt-BR": {
           "variations": {
             "plural": {
-              "one": { "stringUnit": { "state": "translated", "value": "%lld participante · mínimo 3, máximo 50" } },
-              "other": { "stringUnit": { "state": "translated", "value": "%lld participantes · mínimo 3, máximo 50" } }
+              "one": { "stringUnit": { "state": "translated", "value": "%lld participante" } },
+              "other": { "stringUnit": { "state": "translated", "value": "%lld participantes" } }
             }
           }
         }

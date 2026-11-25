@@ -35,6 +35,12 @@ enum ColorToken {
     /// Inactive progress segments and other neutral fills.
     static var inactive: UIColor { .systemGray4 }
 
+    /// Capsule behind a person's name inside a card, such as a restriction.
+    static var pill: UIColor { .tertiarySystemFill }
+
+    /// Dims the screen behind a centered popup.
+    static var dimming: UIColor { UIColor.black.withAlphaComponent(0.4) }
+
     // MARK: - Text
 
     static var textPrimary: UIColor { .label }
@@ -53,7 +59,11 @@ enum ColorToken {
     /// Tinted background of cautionary notices and of the reveal call to action.
     static var warningSoft: UIColor { UIColor(resource: .warningSoft) }
 
-    static var destructive: UIColor { .systemRed }
+    /// Destructive actions and error messages. Darker than `systemRed` so text stays above 4.5:1.
+    static var destructive: UIColor { UIColor(resource: .destructive) }
+
+    /// The "cannot draw" label of a participant's restrictions.
+    static var restriction: UIColor { UIColor(resource: .restriction) }
 
     // MARK: - Avatars
 

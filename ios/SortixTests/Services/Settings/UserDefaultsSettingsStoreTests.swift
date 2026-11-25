@@ -20,6 +20,14 @@ struct UserDefaultsSettingsStoreTests {
         #expect(store.lastOrganizerName == "Ana")
     }
 
+    @Test func remembersTheRestrictionsTip() throws {
+        let store = try makeStore()
+
+        #expect(store.hasSeenRestrictionsTip == false)
+        store.hasSeenRestrictionsTip = true
+        #expect(store.hasSeenRestrictionsTip)
+    }
+
     @Test func remembersSavedRecoveryLinksPerGroup() throws {
         let store = try makeStore()
         let group = GroupID(rawValue: "g1")

@@ -91,6 +91,8 @@ final class CreateGroupCoordinator: NSObject, Coordinator {
             router.push(makeParticipantDetailScene(for: participantID), animated: true, onPop: nil)
         case .pickContact(let onPicked):
             presentContactPicker(onPicked: onPicked)
+        case .showRestrictionsTip(let onConfirm):
+            presentRestrictionsTip(onConfirm: onConfirm)
         case .review:
             // TODO(create-group-draw-review): push the review once stage 16 adds it.
             break
@@ -113,6 +115,14 @@ final class CreateGroupCoordinator: NSObject, Coordinator {
         let picker = CNContactPickerViewController()
         picker.delegate = self
         router.present(picker, animated: true)
+    }
+
+    private func presentRestrictionsTip(onConfirm: @escaping @MainActor () -> Void) {
+        let tip = RestrictionsTipViewController(onConfirm: { [weak self] in
+            onConfirm()
+            self?.router.dismiss(animated: true, completion: nil)
+        })
+        router.present(tip, animated: true)
     }
 
     // MARK: - Leaving the flow

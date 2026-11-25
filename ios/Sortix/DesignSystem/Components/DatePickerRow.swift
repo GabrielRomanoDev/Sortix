@@ -8,13 +8,17 @@ final class DatePickerRow: UIView {
     /// Called when the person picks a date.
     var onDateChange: ((Date) -> Void)?
 
+    private let titleLabel = UILabel()
     private let errorLabel = InlineErrorLabel()
 
-    /// - Parameter accessibilityLabel: What the picker is for, from the String Catalog.
-    init(accessibilityLabel: String) {
+    /// - Parameters:
+    ///   - title: Optional label on the leading side; the picker then sits on the trailing side.
+    ///   - accessibilityLabel: What the picker is for, from the String Catalog.
+    init(title: String? = nil, accessibilityLabel: String) {
         super.init(frame: .zero)
-        setUpDatePicker()
-        setTexts(accessibilityLabel: accessibilityLabel)
+        setUpTitle()
+        setUpDatePicker(hasTitle: title != nil)
+        setTexts(title: title, accessibilityLabel: accessibilityLabel)
         setUpLayout()
     }
 
@@ -35,17 +39,27 @@ final class DatePickerRow: UIView {
 
     // MARK: - Texts
 
-    private func setTexts(accessibilityLabel: String) {
+    private func setTexts(title: String?, accessibilityLabel: String) {
+        titleLabel.text = title
+        titleLabel.isHidden = title == nil
         datePicker.accessibilityLabel = accessibilityLabel
     }
 
     // MARK: - Setup
 
-    private func setUpDatePicker() {
+    private func setUpTitle() {
+        titleLabel.font = TypographyToken.body
+        titleLabel.textColor = ColorToken.textPrimary
+        titleLabel.adjustsFontForContentSizeCategory = true
+        titleLabel.numberOfLines = 0
+        titleLabel.isAccessibilityElement = false
+    }
+
+    private func setUpDatePicker(hasTitle: Bool) {
         datePicker.datePickerMode = .date
         datePicker.preferredDatePickerStyle = .compact
         datePicker.tintColor = ColorToken.accent
-        datePicker.contentHorizontalAlignment = .leading
+        datePicker.contentHorizontalAlignment = hasTitle ? .trailing : .leading
         datePicker.addAction(UIAction { [weak self] _ in
             guard let self else { return }
             onDateChange?(datePicker.date)
@@ -53,7 +67,11 @@ final class DatePickerRow: UIView {
     }
 
     private func setUpLayout() {
-        let stack = UIStackView(arrangedSubviews: [datePicker, errorLabel])
+        let fieldStack = UIStackView(arrangedSubviews: [titleLabel, datePicker])
+        fieldStack.spacing = SpacingToken.small
+        fieldStack.alignment = .center
+
+        let stack = UIStackView(arrangedSubviews: [fieldStack, errorLabel])
         stack.axis = .vertical
         stack.spacing = SpacingToken.xxSmall
         addSubviewsForAutoLayout(stack)

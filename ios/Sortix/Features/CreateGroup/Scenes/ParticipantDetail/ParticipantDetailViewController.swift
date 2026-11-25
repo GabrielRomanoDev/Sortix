@@ -4,21 +4,23 @@ final class ParticipantDetailViewController: UIViewController {
     private enum Section: Int {
         case name
         case restrictions
-        case remove
     }
 
     private enum Item: Hashable {
         case name
         case restriction(ParticipantID)
         case noOtherParticipants
-        case remove
     }
 
     private typealias NameCellRegistration = UICollectionView.CellRegistration<TextFieldListCell, Item>
+    private typealias OptionCellRegistration = UICollectionView.CellRegistration<PersonSelectionCell, ParticipantID>
     private typealias ListCellRegistration = UICollectionView.CellRegistration<UICollectionViewListCell, Item>
 
     private let viewModel: ParticipantDetailViewModel
-    private lazy var detailView = ParticipantDetailView(layout: makeLayout())
+    private lazy var detailView = ParticipantDetailView(
+        layout: makeLayout(),
+        onRemove: { [weak self] in self?.viewModel.didTapRemove() }
+    )
     private lazy var dataSource = makeDataSource()
     /// The last state shown. Cells read their content from it.
     private var renderedState = ParticipantDetailState()
@@ -50,12 +52,17 @@ final class ParticipantDetailViewController: UIViewController {
 
     // MARK: - Setup
 
+    /// The title lives in the header; the bar keeps "Participantes" and "Concluir".
     private func setUpNavigationItem() {
-        navigationItem.largeTitleDisplayMode = .never
-        let doneAction = UIAction(title: String(localized: .commonActionDone)) { [weak self] _ in
+        navigationItem.applyPlainAppearance()
+        detailView.headerView.setTexts(title: String(localized: .participantDetailTitle))
+        detailView.removeButton.setTitle(String(localized: .participantDetailRemove))
+        let doneAction = UIAction(title: String(localized: .participantDetailDone)) { [weak self] _ in
             self?.viewModel.didTapDone()
         }
-        navigationItem.rightBarButtonItem = UIBarButtonItem(primaryAction: doneAction)
+        let doneButton = UIBarButtonItem(primaryAction: doneAction)
+        doneButton.style = .done
+        navigationItem.rightBarButtonItem = doneButton
     }
 
     private func makeLayout() -> UICollectionViewLayout {
@@ -69,8 +76,8 @@ final class ParticipantDetailViewController: UIViewController {
 
     private func render(_ state: ParticipantDetailState) {
         renderedState = state
-        title = displayName(for: state)
         navigationItem.rightBarButtonItem?.isEnabled = state.isDoneEnabled
+        detailView.setRemoveButtonHidden(!state.canRemove)
         applySnapshot(for: state)
         updateSupplementaryViews()
     }
@@ -83,10 +90,6 @@ final class ParticipantDetailViewController: UIViewController {
             snapshot.appendItems([.noOtherParticipants], toSection: .restrictions)
         } else {
             snapshot.appendItems(state.options.map { .restriction($0.receiverID) }, toSection: .restrictions)
-        }
-        if state.canRemove {
-            snapshot.appendSections([.remove])
-            snapshot.appendItems([.remove], toSection: .remove)
         }
         snapshot.reconfigureItems(snapshot.itemIdentifiers)
         dataSource.apply(snapshot, animatingDifferences: false)
@@ -114,6 +117,7 @@ final class ParticipantDetailViewController: UIViewController {
 
     private func makeDataSource() -> UICollectionViewDiffableDataSource<Section, Item> {
         let nameCell = makeNameCellRegistration()
+        let optionCell = makeOptionCellRegistration()
         let listCell = makeListCellRegistration()
         let dataSource = UICollectionViewDiffableDataSource<Section, Item>(
             collectionView: detailView.collectionView
@@ -121,7 +125,9 @@ final class ParticipantDetailViewController: UIViewController {
             switch item {
             case .name:
                 collectionView.dequeueConfiguredReusableCell(using: nameCell, for: indexPath, item: item)
-            case .restriction, .noOtherParticipants, .remove:
+            case .restriction(let receiverID):
+                collectionView.dequeueConfiguredReusableCell(using: optionCell, for: indexPath, item: receiverID)
+            case .noOtherParticipants:
                 collectionView.dequeueConfiguredReusableCell(using: listCell, for: indexPath, item: item)
             }
         }
@@ -172,35 +178,27 @@ final class ParticipantDetailViewController: UIViewController {
         }
     }
 
-    private func makeListCellRegistration() -> ListCellRegistration {
-        ListCellRegistration { [weak self] cell, _, item in
-            guard let self else { return }
-            var content = cell.defaultContentConfiguration()
-            switch item {
-            case .restriction(let receiverID):
-                let option = renderedState.options.first { $0.receiverID == receiverID }
-                let isSelected = option?.isSelected ?? false
-                content.text = option?.name
-                cell.accessories = isSelected ? [.checkmark()] : []
-                cell.accessibilityTraits = isSelected ? [.button, .selected] : [.button]
-            case .noOtherParticipants, .name:
-                content.text = String(localized: .participantDetailRestrictionsEmpty)
-                content.textProperties.color = ColorToken.textSecondary
-                cell.accessories = []
-                cell.accessibilityTraits = []
-            case .remove:
-                content.text = String(localized: .participantDetailRemove)
-                content.textProperties.color = ColorToken.destructive
-                content.textProperties.alignment = .center
-                cell.accessories = []
-                cell.accessibilityTraits = [.button]
+    /// The check comes from the draft, not from the list's own selection: the list hides the
+    /// separators next to selected cells, so cells are deselected right after a tap.
+    private func makeOptionCellRegistration() -> OptionCellRegistration {
+        OptionCellRegistration { [weak self] cell, _, receiverID in
+            guard let option = self?.renderedState.options.first(where: { $0.receiverID == receiverID }) else {
+                return
             }
+            cell.configure(
+                name: option.name,
+                colors: ColorToken.avatarColors(at: option.colorIndex),
+                isSelected: option.isSelected
+            )
+        }
+    }
+
+    private func makeListCellRegistration() -> ListCellRegistration {
+        ListCellRegistration { cell, _, _ in
+            var content = cell.defaultContentConfiguration()
+            content.text = String(localized: .participantDetailRestrictionsEmpty)
+            content.textProperties.color = ColorToken.textSecondary
             cell.contentConfiguration = content
-            // The checkmark comes from the draft, not from the native selection: the list hides
-            // the separators next to selected cells, so cells are deselected right after a tap.
-            var background = UIBackgroundConfiguration.listGroupedCell()
-            background.backgroundColor = ColorToken.surface
-            cell.backgroundConfiguration = background
         }
     }
 
@@ -211,8 +209,6 @@ final class ParticipantDetailViewController: UIViewController {
             content.text = String(localized: .participantDetailSectionName)
         case .restrictions:
             content.text = String(localized: .participantDetailSectionRestrictions(displayName(for: renderedState)))
-        case .remove:
-            content.text = nil
         }
         return content
     }
@@ -224,9 +220,7 @@ final class ParticipantDetailViewController: UIViewController {
             content.text = nameErrorMessage(for: renderedState.nameError)
             content.textProperties.color = ColorToken.destructive
         case .restrictions:
-            content.text = String(localized: .participantDetailRestrictionsFooter)
-        case .remove:
-            content.text = nil
+            content.text = restrictionsSummary(for: renderedState)
         }
         return content
     }
@@ -243,6 +237,16 @@ final class ParticipantDetailViewController: UIViewController {
         return String(localized: placeholder)
     }
 
+    /// "2 pessoas selecionadas…", or that this person can draw anyone.
+    private func restrictionsSummary(for state: ParticipantDetailState) -> String? {
+        guard !state.options.isEmpty else { return nil }
+        let selectedCount = state.options.filter(\.isSelected).count
+        if selectedCount == 0 {
+            return String(localized: .participantDetailRestrictionsNone(displayName(for: state)))
+        }
+        return String(localized: .participantDetailRestrictionsSummary(selectedCount))
+    }
+
     private func nameErrorMessage(for error: ValidationError?) -> String? {
         switch error {
         case .duplicated: String(localized: .participantsErrorDuplicate)
@@ -257,7 +261,7 @@ final class ParticipantDetailViewController: UIViewController {
 extension ParticipantDetailViewController: UICollectionViewDelegate {
     func collectionView(_ collectionView: UICollectionView, shouldSelectItemAt indexPath: IndexPath) -> Bool {
         switch dataSource.itemIdentifier(for: indexPath) {
-        case .restriction, .remove: true
+        case .restriction: true
         case .name, .noOtherParticipants, nil: false
         }
     }
@@ -268,8 +272,6 @@ extension ParticipantDetailViewController: UICollectionViewDelegate {
         case .restriction(let receiverID):
             let isSelected = renderedState.options.first { $0.receiverID == receiverID }?.isSelected ?? false
             viewModel.didChangeRestriction(receiverID: receiverID, isSelected: !isSelected)
-        case .remove:
-            viewModel.didTapRemove()
         case .name, .noOtherParticipants, nil:
             break
         }

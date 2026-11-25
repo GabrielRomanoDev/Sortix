@@ -90,12 +90,13 @@ final class ParticipantDetailViewModel {
         state.nameError = error == .empty ? nil : error
         state.isDoneEnabled = error == nil
         state.canRemove = !participant.isOrganizer
-        state.options = draftStore.draft.participants
-            .filter { $0.id != participantID }
-            .map { receiver in
+        state.options = draftStore.draft.participants.enumerated()
+            .filter { $0.element.id != participantID }
+            .map { position, receiver in
                 RestrictionOption(
                     receiverID: receiver.id,
                     name: receiver.name,
+                    colorIndex: position,
                     isSelected: receiver.forbiddenGiverIDs.contains(participantID)
                 )
             }

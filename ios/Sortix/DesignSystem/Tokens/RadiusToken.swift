@@ -14,6 +14,8 @@ enum RadiusToken {
     static let button: CGFloat = 16
     /// Large call-to-action panels, such as "reveal who you drew".
     static let hero: CGFloat = 22
+    /// Centered popups, such as the restrictions tip.
+    static let popup: CGFloat = 30
     /// Bottom corners of the reveal header.
     static let revealHeader: CGFloat = 28
 }

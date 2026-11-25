@@ -1,7 +1,9 @@
 import UIKit
 
-/// The rules form: a "Grupo" section with the name and an optional "Regras" section.
+/// Step 1 of the creation flow: the header with the progress bar, the form ("Nome do grupo",
+/// "Regras" and "Observações") and the "Próximo" button at the bottom.
 final class GroupRulesView: UIView {
+    let headerView = ScreenHeaderView(step: (current: 1, total: CreateGroupStep.total))
     let formView = FormScrollView()
     let nameRow: TextFieldRow
     let maxGiftValueRow: CurrencyFieldRow
@@ -9,11 +11,17 @@ final class GroupRulesView: UIView {
     let eventDatePickerRow: DatePickerRow
     let locationRow: TextFieldRow
     let notesRow: TextViewRow
+    let nextButton: PrimaryButton
 
-    private let groupSection = FormSectionView(header: String(localized: .groupRulesSectionGroup))
+    private let groupSection = FormSectionView(header: String(localized: .groupRulesNameLabel))
     private let rulesSection = FormSectionView(header: String(localized: .groupRulesSectionRules))
+    private let notesSection = FormSectionView(
+        header: String(localized: .groupRulesNotesLabel),
+        footer: String(localized: .groupRulesNotesFooter)
+    )
 
-    init(currencyCode: String, locale: Locale) {
+    /// - Parameter onNext: Called by the "Próximo" button. Assign it with `[weak self]`.
+    init(currencyCode: String, locale: Locale, onNext: @escaping @MainActor () -> Void) {
         nameRow = TextFieldRow(
             placeholder: String(localized: .groupRulesNamePlaceholder),
             accessibilityLabel: String(localized: .groupRulesNameAccessibilityLabel)
@@ -25,15 +33,19 @@ final class GroupRulesView: UIView {
             locale: locale
         )
         eventDateToggleRow = ToggleRow(title: String(localized: .groupRulesEventDateToggle))
-        eventDatePickerRow = DatePickerRow(accessibilityLabel: String(localized: .groupRulesEventDateToggle))
+        eventDatePickerRow = DatePickerRow(
+            title: String(localized: .groupRulesEventDateLabel),
+            accessibilityLabel: String(localized: .groupRulesEventDateToggle)
+        )
         locationRow = TextFieldRow(
             title: String(localized: .groupRulesLocationLabel),
             placeholder: String(localized: .groupRulesLocationPlaceholder)
         )
         notesRow = TextViewRow(
-            title: String(localized: .groupRulesNotesLabel),
-            placeholder: String(localized: .groupRulesNotesPlaceholder)
+            placeholder: String(localized: .groupRulesNotesPlaceholder),
+            accessibilityLabel: String(localized: .groupRulesNotesLabel)
         )
+        nextButton = PrimaryButton(title: String(localized: .groupRulesNext), action: onNext)
         super.init(frame: .zero)
         setUpFields()
         setUpSections()
@@ -65,21 +77,25 @@ final class GroupRulesView: UIView {
         rulesSection.addRow(eventDateToggleRow)
         rulesSection.addRow(eventDatePickerRow)
         rulesSection.addRow(locationRow)
-        rulesSection.addRow(notesRow)
         setEventDatePickerHidden(true)
+
+        notesSection.addRow(notesRow)
 
         formView.addArrangedSubview(groupSection)
         formView.addArrangedSubview(rulesSection)
+        formView.addArrangedSubview(notesSection)
     }
 
     private func setUpLayout() {
         backgroundColor = ColorToken.background
-        addSubviewsForAutoLayout(formView)
+        let stack = UIStackView(arrangedSubviews: [headerView, formView, FooterActionView(button: nextButton)])
+        stack.axis = .vertical
+        addSubviewsForAutoLayout(stack)
         NSLayoutConstraint.activate([
-            formView.topAnchor.constraint(equalTo: topAnchor),
-            formView.leadingAnchor.constraint(equalTo: leadingAnchor),
-            formView.trailingAnchor.constraint(equalTo: trailingAnchor),
-            formView.bottomAnchor.constraint(equalTo: keyboardLayoutGuide.topAnchor)
+            stack.topAnchor.constraint(equalTo: safeAreaLayoutGuide.topAnchor),
+            stack.leadingAnchor.constraint(equalTo: leadingAnchor),
+            stack.trailingAnchor.constraint(equalTo: trailingAnchor),
+            stack.bottomAnchor.constraint(equalTo: keyboardLayoutGuide.topAnchor)
         ])
     }
 }

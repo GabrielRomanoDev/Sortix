@@ -10,6 +10,9 @@ final class ParticipantsViewModel {
         /// The coordinator shows the contact picker and calls `onPicked` with the contact's name,
         /// or with `nil` when the contact has no name.
         case pickContact(onPicked: @MainActor (String?) -> Void)
+        /// The coordinator shows the popup that teaches how to add restrictions and calls
+        /// `onConfirm` when the person taps "Entendido".
+        case showRestrictionsTip(onConfirm: @MainActor () -> Void)
         case review
     }
 
@@ -102,6 +105,15 @@ final class ParticipantsViewModel {
         updateState(makeState())
     }
 
+    /// The restrictions tip shows the first time this screen appears on the device, until the
+    /// person confirms it.
+    func viewDidAppear() {
+        guard !settingsStore.hasSeenRestrictionsTip else { return }
+        onNavigation?(.showRestrictionsTip(onConfirm: { [weak self] in
+            self?.settingsStore.hasSeenRestrictionsTip = true
+        }))
+    }
+
     // MARK: - Rules
 
     private var canAddMore: Bool {
@@ -162,13 +174,14 @@ final class ParticipantsViewModel {
     private func makeRow(for participant: ParticipantDraft, among participants: [ParticipantDraft]) -> ParticipantRow {
         let error = GroupDraftValidator.validateParticipantName(participant, among: participants)
         // Restrictions are stored on who is drawn, but shown from the side of who draws.
-        let receiverNames = participants
-            .filter { $0.forbiddenGiverIDs.contains(participant.id) }
-            .map(\.name)
+        let receivers = participants.enumerated()
+            .filter { $0.element.forbiddenGiverIDs.contains(participant.id) }
+            .map { ParticipantBadge(name: $0.element.name, colorIndex: $0.offset) }
         return ParticipantRow(
             id: participant.id,
             name: participant.name,
-            forbiddenReceiverNames: receiverNames,
+            colorIndex: participants.firstIndex { $0.id == participant.id } ?? 0,
+            forbiddenReceivers: receivers,
             error: error == .empty ? nil : error
         )
     }

@@ -170,9 +170,60 @@ struct ParticipantsSceneTests {
 
         viewModel.viewWillAppear()
 
-        // Bruno cannot be drawn by Ana, so Ana's row says she cannot draw Bruno.
-        #expect(viewModel.state.participants.first?.forbiddenReceiverNames == ["Bruno"])
-        #expect(viewModel.state.participants.last?.forbiddenReceiverNames == [])
+        // Bruno cannot be drawn by Ana, so Ana's row says she cannot draw Bruno, in Bruno's colors.
+        #expect(viewModel.state.participants.first?.forbiddenReceivers == [ParticipantBadge(name: "Bruno", colorIndex: 2)])
+        #expect(viewModel.state.participants.last?.forbiddenReceivers == [])
+    }
+
+    @Test func avatarColorsFollowThePositionInTheGroup() {
+        let viewModel = makeViewModel()
+        viewModel.viewDidLoad()
+        add("Ana", to: viewModel)
+        add("Bruno", to: viewModel)
+
+        #expect(viewModel.state.organizer?.colorIndex == 0)
+        #expect(viewModel.state.participants.map(\.colorIndex) == [1, 2])
+    }
+
+    @Test func restrictionsTipShowsUntilConfirmed() throws {
+        let settingsStore = MockSettingsStore()
+        let viewModel = makeViewModel(settingsStore: settingsStore)
+        var onConfirm: (@MainActor () -> Void)?
+        var tipCount = 0
+        viewModel.onNavigation = { navigation in
+            if case .showRestrictionsTip(let callback) = navigation {
+                onConfirm = callback
+                tipCount += 1
+            }
+        }
+        viewModel.viewDidLoad()
+
+        viewModel.viewDidAppear()
+        #expect(tipCount == 1)
+        #expect(settingsStore.hasSeenRestrictionsTip == false)
+
+        try #require(onConfirm)()
+        viewModel.viewDidAppear()
+
+        #expect(settingsStore.hasSeenRestrictionsTip)
+        #expect(tipCount == 1)
+    }
+
+    @Test func restrictionsTipIsNotShownAgain() {
+        let settingsStore = MockSettingsStore()
+        settingsStore.hasSeenRestrictionsTip = true
+        let viewModel = makeViewModel(settingsStore: settingsStore)
+        var tipWasShown = false
+        viewModel.onNavigation = { navigation in
+            if case .showRestrictionsTip = navigation {
+                tipWasShown = true
+            }
+        }
+        viewModel.viewDidLoad()
+
+        viewModel.viewDidAppear()
+
+        #expect(!tipWasShown)
     }
 
     @Test func contactNameIsAddedEvenWhenTooLong() {

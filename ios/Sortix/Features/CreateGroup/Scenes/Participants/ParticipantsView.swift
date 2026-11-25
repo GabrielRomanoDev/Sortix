@@ -1,12 +1,19 @@
 import UIKit
 
-/// The participants list: an `insetGrouped` collection view that stays above the keyboard.
+/// Step 2 of the creation flow: the header with the progress bar, the add row, the cards and the
+/// "Revisar e sortear" button. Everything above the list stays in place while it scrolls.
 final class ParticipantsView: UIView {
+    let headerView = ScreenHeaderView(step: (current: 2, total: CreateGroupStep.total))
+    let addBar = AddParticipantBar()
     let collectionView: UICollectionView
+    let reviewButton: PrimaryButton
 
-    /// - Parameter layout: Built by the ViewController, which owns the swipe actions.
-    init(layout: UICollectionViewLayout) {
+    /// - Parameters:
+    ///   - layout: Built by the ViewController, which owns the swipe actions.
+    ///   - onReview: Called by the bottom button. Assign it with `[weak self]`.
+    init(layout: UICollectionViewLayout, onReview: @escaping @MainActor () -> Void) {
         collectionView = UICollectionView(frame: .zero, collectionViewLayout: layout)
+        reviewButton = PrimaryButton(title: "", action: onReview)
         super.init(frame: .zero)
         setUpCollectionView()
         setUpLayout()
@@ -26,12 +33,20 @@ final class ParticipantsView: UIView {
     }
 
     private func setUpLayout() {
-        addSubviewsForAutoLayout(collectionView)
+        let stack = UIStackView(arrangedSubviews: [
+            headerView,
+            addBar,
+            collectionView,
+            FooterActionView(button: reviewButton)
+        ])
+        stack.axis = .vertical
+        stack.setCustomSpacing(SpacingToken.xSmall, after: addBar)
+        addSubviewsForAutoLayout(stack)
         NSLayoutConstraint.activate([
-            collectionView.topAnchor.constraint(equalTo: topAnchor),
-            collectionView.leadingAnchor.constraint(equalTo: leadingAnchor),
-            collectionView.trailingAnchor.constraint(equalTo: trailingAnchor),
-            collectionView.bottomAnchor.constraint(equalTo: keyboardLayoutGuide.topAnchor)
+            stack.topAnchor.constraint(equalTo: safeAreaLayoutGuide.topAnchor),
+            stack.leadingAnchor.constraint(equalTo: leadingAnchor),
+            stack.trailingAnchor.constraint(equalTo: trailingAnchor),
+            stack.bottomAnchor.constraint(equalTo: keyboardLayoutGuide.topAnchor)
         ])
     }
 }

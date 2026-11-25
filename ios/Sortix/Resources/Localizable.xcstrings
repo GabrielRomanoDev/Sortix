@@ -49,6 +49,18 @@
         }
       }
     },
+    "common.action.back": {
+      "comment": "Title of the back button that returns to the previous screen.",
+      "extractionState": "manual",
+      "localizations": {
+        "pt-BR": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Voltar"
+          }
+        }
+      }
+    },
     "common.action.cancel": {
       "comment": "Button that cancels the current flow or dialog.",
       "extractionState": "manual",
@@ -253,6 +265,30 @@
         }
       }
     },
+    "createGroup.step": {
+      "comment": "Navigation bar title of the creation flow. %1$lld is the current step and %2$lld the number of steps.",
+      "extractionState": "manual",
+      "localizations": {
+        "pt-BR": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Etapa %1$lld de %2$lld"
+          }
+        }
+      }
+    },
+    "groupList.backButton": {
+      "comment": "Back button title on screens opened from the group list.",
+      "extractionState": "manual",
+      "localizations": {
+        "pt-BR": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Grupos"
+          }
+        }
+      }
+    },
     "groupList.createButton.accessibilityLabel": {
       "comment": "VoiceOver label of the + button in the group list navigation bar.",
       "extractionState": "manual",
@@ -265,14 +301,14 @@
         }
       }
     },
-    "groupList.empty.action": {
-      "comment": "Button of the group list empty state that starts creating a group.",
+    "groupList.createButton.title": {
+      "comment": "Bottom button of the group list that starts creating a group.",
       "extractionState": "manual",
       "localizations": {
         "pt-BR": {
           "stringUnit": {
             "state": "translated",
-            "value": "Criar grupo"
+            "value": "Criar novo grupo"
           }
         }
       }
@@ -313,6 +349,18 @@
         }
       }
     },
+    "groupList.subtitle": {
+      "comment": "Subtitle below the title of the group list.",
+      "extractionState": "manual",
+      "localizations": {
+        "pt-BR": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Seus sorteios de fim de ano"
+          }
+        }
+      }
+    },
     "groupList.title": {
       "comment": "Large navigation title of the group list, the first screen of the app.",
       "extractionState": "manual",
@@ -333,6 +381,18 @@
           "stringUnit": {
             "state": "translated",
             "value": "A data não pode ser anterior a hoje."
+          }
+        }
+      }
+    },
+    "groupRules.eventDate.label": {
+      "comment": "Label next to the event date picker.",
+      "extractionState": "manual",
+      "localizations": {
+        "pt-BR": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Data"
           }
         }
       }
@@ -469,6 +529,30 @@
         }
       }
     },
+    "groupRules.next": {
+      "comment": "Bottom button of the rules step that goes to the participants step.",
+      "extractionState": "manual",
+      "localizations": {
+        "pt-BR": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Próximo: participantes"
+          }
+        }
+      }
+    },
+    "groupRules.notes.footer": {
+      "comment": "Footer below the notes field.",
+      "extractionState": "manual",
+      "localizations": {
+        "pt-BR": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Todos os participantes veem estas regras."
+          }
+        }
+      }
+    },
     "groupRules.notes.label": {
       "comment": "Label of the group notes field.",
       "extractionState": "manual",
@@ -493,18 +577,6 @@
         }
       }
     },
-    "groupRules.section.group": {
-      "comment": "Header of the section with the group name.",
-      "extractionState": "manual",
-      "localizations": {
-        "pt-BR": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Grupo"
-          }
-        }
-      }
-    },
     "groupRules.section.rules": {
       "comment": "Header of the section with the optional group rules.",
       "extractionState": "manual",
@@ -525,6 +597,18 @@
           "stringUnit": {
             "state": "translated",
             "value": "Novo grupo"
+          }
+        }
+      }
+    },
+    "participantDetail.done": {
+      "comment": "Button that closes the participant detail.",
+      "extractionState": "manual",
+      "localizations": {
+        "pt-BR": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Concluir"
           }
         }
       }
@@ -577,14 +661,38 @@
         }
       }
     },
-    "participantDetail.restrictions.footer": {
-      "comment": "Footer explaining what restrictions are for.",
+    "participantDetail.restrictions.none": {
+      "comment": "Footer of the restrictions list when nothing is marked. %@ is the participant name.",
       "extractionState": "manual",
       "localizations": {
         "pt-BR": {
           "stringUnit": {
             "state": "translated",
-            "value": "Marque quem essa pessoa não pode tirar no sorteio. Ex.: uma criança não deve tirar a própria mãe."
+            "value": "%@ pode tirar qualquer pessoa."
+          }
+        }
+      }
+    },
+    "participantDetail.restrictions.summary": {
+      "comment": "Footer of the restrictions list. %lld is the number of people this participant cannot draw.",
+      "extractionState": "manual",
+      "localizations": {
+        "pt-BR": {
+          "variations": {
+            "plural": {
+              "one": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "%lld pessoa selecionada. Toque para marcar ou desmarcar."
+                }
+              },
+              "other": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "%lld pessoas selecionadas. Toque para marcar ou desmarcar."
+                }
+              }
+            }
           }
         }
       }
@@ -613,6 +721,18 @@
         }
       }
     },
+    "participantDetail.title": {
+      "comment": "Title of the participant detail screen.",
+      "extractionState": "manual",
+      "localizations": {
+        "pt-BR": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Editar participante"
+          }
+        }
+      }
+    },
     "participants.action.remove": {
       "comment": "Swipe action that removes a participant.",
       "extractionState": "manual",
@@ -633,6 +753,18 @@
           "stringUnit": {
             "state": "translated",
             "value": "Adicionar participante"
+          }
+        }
+      }
+    },
+    "participants.add.button": {
+      "comment": "Button next to the name field that adds the participant.",
+      "extractionState": "manual",
+      "localizations": {
+        "pt-BR": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Adicionar"
           }
         }
       }
@@ -721,8 +853,20 @@
         }
       }
     },
-    "participants.footer.count": {
-      "comment": "Footer of the participants list. %lld is the number of participants, including the organizer.",
+    "participants.footer.limits": {
+      "comment": "Footer below the last participant. %1$lld is the minimum and %2$lld the maximum number of participants.",
+      "extractionState": "manual",
+      "localizations": {
+        "pt-BR": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Mínimo de %1$lld e máximo de %2$lld participantes."
+          }
+        }
+      }
+    },
+    "participants.header.count": {
+      "comment": "Header of the participants list, shown in uppercase. %lld is the number of participants, including the organizer.",
       "extractionState": "manual",
       "localizations": {
         "pt-BR": {
@@ -731,13 +875,13 @@
               "one": {
                 "stringUnit": {
                   "state": "translated",
-                  "value": "%lld participante · mínimo 3, máximo 50"
+                  "value": "%lld participante"
                 }
               },
               "other": {
                 "stringUnit": {
                   "state": "translated",
-                  "value": "%lld participantes · mínimo 3, máximo 50"
+                  "value": "%lld participantes"
                 }
               }
             }
@@ -745,14 +889,26 @@
         }
       }
     },
-    "participants.next": {
-      "comment": "Button that goes to the review step.",
+    "participants.header.hint": {
+      "comment": "Hint on the right of the participants list header.",
       "extractionState": "manual",
       "localizations": {
         "pt-BR": {
           "stringUnit": {
             "state": "translated",
-            "value": "Revisar"
+            "value": "Toque para editar"
+          }
+        }
+      }
+    },
+    "participants.next": {
+      "comment": "Bottom button of the participants step that goes to the review step.",
+      "extractionState": "manual",
+      "localizations": {
+        "pt-BR": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Revisar e sortear"
           }
         }
       }
@@ -776,7 +932,7 @@
         "pt-BR": {
           "stringUnit": {
             "state": "translated",
-            "value": "(Você)"
+            "value": "Você"
           }
         }
       }
@@ -789,30 +945,6 @@
           "stringUnit": {
             "state": "translated",
             "value": "Não pode tirar"
-          }
-        }
-      }
-    },
-    "participants.section.add": {
-      "comment": "Header of the section with the field and the contacts button that add participants.",
-      "extractionState": "manual",
-      "localizations": {
-        "pt-BR": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Adicionar participantes"
-          }
-        }
-      }
-    },
-    "participants.section.others": {
-      "comment": "Header of the list with everyone in the group, including the organizer.",
-      "extractionState": "manual",
-      "localizations": {
-        "pt-BR": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Participantes"
           }
         }
       }
@@ -873,6 +1005,90 @@
           "stringUnit": {
             "state": "translated",
             "value": "Recuperar grupo?"
+          }
+        }
+      }
+    },
+    "restrictionsTip.confirm": {
+      "comment": "Button that closes the restrictions popup.",
+      "extractionState": "manual",
+      "localizations": {
+        "pt-BR": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Entendido"
+          }
+        }
+      }
+    },
+    "restrictionsTip.example.caption": {
+      "comment": "Caption below the restrictions popup illustration. Uses the example names.",
+      "extractionState": "manual",
+      "localizations": {
+        "pt-BR": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "No sorteio, Lucas nunca vai tirar Marina nem Paulo."
+          }
+        }
+      }
+    },
+    "restrictionsTip.example.firstReceiver": {
+      "comment": "First example name the example participant cannot draw.",
+      "extractionState": "manual",
+      "localizations": {
+        "pt-BR": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Marina"
+          }
+        }
+      }
+    },
+    "restrictionsTip.example.giver": {
+      "comment": "Example participant name in the restrictions popup illustration.",
+      "extractionState": "manual",
+      "localizations": {
+        "pt-BR": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Lucas"
+          }
+        }
+      }
+    },
+    "restrictionsTip.example.secondReceiver": {
+      "comment": "Second example name the example participant cannot draw.",
+      "extractionState": "manual",
+      "localizations": {
+        "pt-BR": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Paulo"
+          }
+        }
+      }
+    },
+    "restrictionsTip.message": {
+      "comment": "Explanation in the restrictions popup.",
+      "extractionState": "manual",
+      "localizations": {
+        "pt-BR": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Toque no nome de um participante para editá-lo e escolher quem ele não pode tirar no sorteio."
+          }
+        }
+      }
+    },
+    "restrictionsTip.title": {
+      "comment": "Title of the popup that teaches how to add restrictions.",
+      "extractionState": "manual",
+      "localizations": {
+        "pt-BR": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Adicione regras ao sorteio"
           }
         }
       }

@@ -2,6 +2,9 @@ import UIKit
 
 final class GroupListViewController: UIViewController {
     private let viewModel: GroupListViewModel
+    private lazy var listView = GroupListView { [weak self] in
+        self?.viewModel.didTapCreateGroup()
+    }
 
     init(viewModel: GroupListViewModel) {
         self.viewModel = viewModel
@@ -14,12 +17,13 @@ final class GroupListViewController: UIViewController {
     }
 
     override func loadView() {
-        view = GroupListView()
+        view = listView
     }
 
     override func viewDidLoad() {
         super.viewDidLoad()
         setUpNavigationItem()
+        setTexts()
         viewModel.onStateChange = { [weak self] state in
             self?.render(state)
         }
@@ -29,20 +33,20 @@ final class GroupListViewController: UIViewController {
 
     // MARK: - Setup
 
+    /// The title lives in the header; the bar keeps only the "About" menu.
     private func setUpNavigationItem() {
-        title = String(localized: .groupListTitle)
-        navigationItem.largeTitleDisplayMode = .always
+        navigationItem.applyPlainAppearance()
+        navigationItem.backButtonTitle = String(localized: .groupListBackButton)
         navigationItem.leftBarButtonItem = makeAboutButton()
-        navigationItem.rightBarButtonItem = makeCreateButton()
     }
 
-    private func makeCreateButton() -> UIBarButtonItem {
-        let createAction = UIAction { [weak self] _ in
-            self?.viewModel.didTapCreateGroup()
-        }
-        let button = UIBarButtonItem(systemItem: .add, primaryAction: createAction)
-        button.accessibilityLabel = String(localized: .groupListCreateButtonAccessibilityLabel)
-        return button
+    private func setTexts() {
+        listView.headerView.setTexts(
+            title: String(localized: .groupListTitle),
+            subtitle: String(localized: .groupListSubtitle)
+        )
+        listView.addButton.accessibilityLabel = String(localized: .groupListCreateButtonAccessibilityLabel)
+        listView.createButton.setTitle(String(localized: .groupListCreateButtonTitle))
     }
 
     private func makeAboutButton() -> UIBarButtonItem {
@@ -70,23 +74,21 @@ final class GroupListViewController: UIViewController {
     private func render(_ state: GroupListState) {
         switch state {
         case .loading:
-            contentUnavailableConfiguration = UIContentUnavailableConfiguration.loading()
+            listView.stateView.configuration = UIContentUnavailableConfiguration.loading()
         case .empty:
-            contentUnavailableConfiguration = makeEmptyConfiguration()
+            listView.stateView.configuration = makeEmptyConfiguration()
         case .failed(let error):
-            contentUnavailableConfiguration = makeErrorConfiguration(for: error)
+            listView.stateView.configuration = makeErrorConfiguration(for: error)
         }
     }
 
+    /// The "Criar novo grupo" button below already offers the way out, so the state has no button.
     private func makeEmptyConfiguration() -> UIContentUnavailableConfiguration {
         var configuration = UIContentUnavailableConfiguration.empty()
         configuration.image = IconToken.gift.image
+        configuration.imageProperties.tintColor = ColorToken.accent
         configuration.text = String(localized: .groupListEmptyTitle)
         configuration.secondaryText = String(localized: .groupListEmptyMessage)
-        configuration.button = makeFilledButton(title: String(localized: .groupListEmptyAction))
-        configuration.buttonProperties.primaryAction = UIAction { [weak self] _ in
-            self?.viewModel.didTapCreateGroup()
-        }
         return configuration
     }
 

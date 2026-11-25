@@ -4,6 +4,7 @@
 @MainActor
 final class MockSettingsStore: LocalSettingsStoreProtocol {
     var lastOrganizerName: String?
+    var hasSeenRestrictionsTip = false
     private(set) var savedRecoveryLinkGroupIDs: Set<GroupID> = []
 
     func isRecoveryLinkSaved(for groupID: GroupID) -> Bool {

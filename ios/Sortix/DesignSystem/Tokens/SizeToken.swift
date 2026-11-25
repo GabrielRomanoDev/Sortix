@@ -13,6 +13,8 @@ enum SizeToken {
     static let rowMinHeight: CGFloat = 50
     /// Minimum height of the text area of a `TextViewRow`, about three lines.
     static let textViewMinHeight: CGFloat = 66
+    /// Diameter of the initials badge inside a `PersonPillView`.
+    static let avatarMini: CGFloat = 20
     /// Diameter of the initials badge in compact lists.
     static let avatarSmall: CGFloat = 32
     /// Diameter of the initials badge in the group status list.
@@ -23,6 +25,8 @@ enum SizeToken {
     static let heroIcon: CGFloat = 72
     /// Thickness of the separator between rows of a `FormSectionView`.
     static let separatorThickness: CGFloat = 0.5
+    /// Side of the square buttons next to a text field, such as "pick from contacts".
+    static let fieldButton: CGFloat = 50
     /// Height of each segment of the creation flow progress bar.
     static let progressBarHeight: CGFloat = 4
 }
