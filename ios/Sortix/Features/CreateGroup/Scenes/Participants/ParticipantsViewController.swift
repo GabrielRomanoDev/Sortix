@@ -107,6 +107,7 @@ final class ParticipantsViewController: UIViewController {
 
     private func render(_ state: ParticipantsState) {
         let hadAddError = renderedState.addError != nil
+        let previousState = renderedState
         renderedState = state
         participantsView.addBar.configure(
             text: state.newName,
@@ -114,21 +115,26 @@ final class ParticipantsViewController: UIViewController {
             isEnabled: state.isAddEnabled
         )
         participantsView.reviewButton.isEnabled = state.isReviewEnabled
-        applySnapshot(for: state)
+        applySnapshot(for: state, previousState: previousState)
         updateSupplementaryViews()
         if !hadAddError && state.addError != nil {
             UIAccessibility.post(notification: .layoutChanged, argument: participantsView.addBar.errorLabel)
         }
     }
 
-    private func applySnapshot(for state: ParticipantsState) {
+    private func applySnapshot(for state: ParticipantsState, previousState: ParticipantsState) {
         var snapshot = NSDiffableDataSourceSnapshot<Section, Item>()
-        for person in people(in: state) {
+        let rows = people(in: state)
+        for person in rows {
             snapshot.appendSections([person.id])
             snapshot.appendItems([person.id], toSection: person.id)
         }
-        // Rows keep their identity, so their content is refreshed explicitly.
-        snapshot.reconfigureItems(snapshot.itemIdentifiers)
+        // Rows keep their identity, so the ones whose content changed are reloaded. A reload, unlike a
+        // reconfigure, measures the card again even when the change happens while the screen is off
+        // the window (coming back from the detail), so a card with a new restriction grows.
+        let previousRows = Dictionary(people(in: previousState).map { ($0.id, $0) }) { first, _ in first }
+        let changedIDs = rows.filter { previousRows[$0.id] != nil && previousRows[$0.id] != $0 }.map(\.id)
+        snapshot.reloadItems(changedIDs)
         dataSource.apply(snapshot, animatingDifferences: view.window != nil)
     }
 
