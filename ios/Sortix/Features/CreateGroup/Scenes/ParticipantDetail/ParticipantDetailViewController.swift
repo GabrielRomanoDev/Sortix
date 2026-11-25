@@ -73,7 +73,6 @@ final class ParticipantDetailViewController: UIViewController {
         navigationItem.rightBarButtonItem?.isEnabled = state.isDoneEnabled
         applySnapshot(for: state)
         updateSupplementaryViews()
-        selectForbiddenReceivers(in: state)
     }
 
     private func applySnapshot(for state: ParticipantDetailState) {
@@ -91,20 +90,6 @@ final class ParticipantDetailViewController: UIViewController {
         }
         snapshot.reconfigureItems(snapshot.itemIdentifiers)
         dataSource.apply(snapshot, animatingDifferences: false)
-    }
-
-    /// Keeps the native selection, which shows the checkmarks, in line with the draft.
-    private func selectForbiddenReceivers(in state: ParticipantDetailState) {
-        let collectionView = detailView.collectionView
-        for option in state.options {
-            guard let indexPath = dataSource.indexPath(for: .restriction(option.receiverID)) else { continue }
-            let isSelected = collectionView.indexPathsForSelectedItems?.contains(indexPath) ?? false
-            if option.isSelected && !isSelected {
-                collectionView.selectItem(at: indexPath, animated: false, scrollPosition: [])
-            } else if !option.isSelected && isSelected {
-                collectionView.deselectItem(at: indexPath, animated: false)
-            }
-        }
     }
 
     /// Headers and footers change with the name, so the visible ones are refreshed by hand.
@@ -193,25 +178,26 @@ final class ParticipantDetailViewController: UIViewController {
             var content = cell.defaultContentConfiguration()
             switch item {
             case .restriction(let receiverID):
-                content.text = renderedState.options.first { $0.receiverID == receiverID }?.name
-                cell.configurationUpdateHandler = { cell, state in
-                    guard let cell = cell as? UICollectionViewListCell else { return }
-                    cell.accessories = state.isSelected ? [.checkmark()] : []
-                }
+                let option = renderedState.options.first { $0.receiverID == receiverID }
+                let isSelected = option?.isSelected ?? false
+                content.text = option?.name
+                cell.accessories = isSelected ? [.checkmark()] : []
+                cell.accessibilityTraits = isSelected ? [.button, .selected] : [.button]
             case .noOtherParticipants, .name:
                 content.text = String(localized: .participantDetailRestrictionsEmpty)
                 content.textProperties.color = ColorToken.textSecondary
-                cell.configurationUpdateHandler = nil
                 cell.accessories = []
+                cell.accessibilityTraits = []
             case .remove:
                 content.text = String(localized: .participantDetailRemove)
                 content.textProperties.color = ColorToken.destructive
                 content.textProperties.alignment = .center
-                cell.configurationUpdateHandler = nil
                 cell.accessories = []
+                cell.accessibilityTraits = [.button]
             }
             cell.contentConfiguration = content
-            // The checkmark shows the selection; the gray selected background would hide the list look.
+            // The checkmark comes from the draft, not from the native selection: the list hides
+            // the separators next to selected cells, so cells are deselected right after a tap.
             var background = UIBackgroundConfiguration.listGroupedCell()
             background.backgroundColor = ColorToken.surface
             cell.backgroundConfiguration = background
@@ -277,19 +263,15 @@ extension ParticipantDetailViewController: UICollectionViewDelegate {
     }
 
     func collectionView(_ collectionView: UICollectionView, didSelectItemAt indexPath: IndexPath) {
+        collectionView.deselectItem(at: indexPath, animated: true)
         switch dataSource.itemIdentifier(for: indexPath) {
         case .restriction(let receiverID):
-            viewModel.didChangeRestriction(receiverID: receiverID, isSelected: true)
+            let isSelected = renderedState.options.first { $0.receiverID == receiverID }?.isSelected ?? false
+            viewModel.didChangeRestriction(receiverID: receiverID, isSelected: !isSelected)
         case .remove:
-            collectionView.deselectItem(at: indexPath, animated: true)
             viewModel.didTapRemove()
         case .name, .noOtherParticipants, nil:
             break
         }
-    }
-
-    func collectionView(_ collectionView: UICollectionView, didDeselectItemAt indexPath: IndexPath) {
-        guard case .restriction(let receiverID) = dataSource.itemIdentifier(for: indexPath) else { return }
-        viewModel.didChangeRestriction(receiverID: receiverID, isSelected: false)
     }
 }

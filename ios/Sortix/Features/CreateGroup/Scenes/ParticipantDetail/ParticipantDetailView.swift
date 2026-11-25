@@ -1,6 +1,6 @@
 import UIKit
 
-/// The detail list: an `insetGrouped` collection view with multiple selection for restrictions.
+/// The detail list: an `insetGrouped` collection view. Restriction checkmarks come from the state.
 final class ParticipantDetailView: UIView {
     let collectionView: UICollectionView
 
@@ -19,7 +19,6 @@ final class ParticipantDetailView: UIView {
     private func setUpCollectionView() {
         backgroundColor = ColorToken.background
         collectionView.backgroundColor = ColorToken.background
-        collectionView.allowsMultipleSelection = true
         collectionView.keyboardDismissMode = .interactive
     }
 
