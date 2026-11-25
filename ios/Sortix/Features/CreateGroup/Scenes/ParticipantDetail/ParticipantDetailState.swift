@@ -6,4 +6,6 @@ struct ParticipantDetailState: Equatable {
     var nameError: ValidationError?
     var options: [RestrictionOption] = []
     var isDoneEnabled = false
+    /// Everyone but the organizer can be removed (BR-11).
+    var canRemove = false
 }

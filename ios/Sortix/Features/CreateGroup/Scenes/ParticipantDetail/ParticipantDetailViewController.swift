@@ -4,12 +4,14 @@ final class ParticipantDetailViewController: UIViewController {
     private enum Section: Int {
         case name
         case restrictions
+        case remove
     }
 
     private enum Item: Hashable {
         case name
         case restriction(ParticipantID)
         case noOtherParticipants
+        case remove
     }
 
     private typealias NameCellRegistration = UICollectionView.CellRegistration<TextFieldListCell, Item>
@@ -71,7 +73,7 @@ final class ParticipantDetailViewController: UIViewController {
         navigationItem.rightBarButtonItem?.isEnabled = state.isDoneEnabled
         applySnapshot(for: state)
         updateSupplementaryViews()
-        selectRestrictedGivers(in: state)
+        selectForbiddenReceivers(in: state)
     }
 
     private func applySnapshot(for state: ParticipantDetailState) {
@@ -81,17 +83,21 @@ final class ParticipantDetailViewController: UIViewController {
         if state.options.isEmpty {
             snapshot.appendItems([.noOtherParticipants], toSection: .restrictions)
         } else {
-            snapshot.appendItems(state.options.map { .restriction($0.giverID) }, toSection: .restrictions)
+            snapshot.appendItems(state.options.map { .restriction($0.receiverID) }, toSection: .restrictions)
+        }
+        if state.canRemove {
+            snapshot.appendSections([.remove])
+            snapshot.appendItems([.remove], toSection: .remove)
         }
         snapshot.reconfigureItems(snapshot.itemIdentifiers)
         dataSource.apply(snapshot, animatingDifferences: false)
     }
 
     /// Keeps the native selection, which shows the checkmarks, in line with the draft.
-    private func selectRestrictedGivers(in state: ParticipantDetailState) {
+    private func selectForbiddenReceivers(in state: ParticipantDetailState) {
         let collectionView = detailView.collectionView
         for option in state.options {
-            guard let indexPath = dataSource.indexPath(for: .restriction(option.giverID)) else { continue }
+            guard let indexPath = dataSource.indexPath(for: .restriction(option.receiverID)) else { continue }
             let isSelected = collectionView.indexPathsForSelectedItems?.contains(indexPath) ?? false
             if option.isSelected && !isSelected {
                 collectionView.selectItem(at: indexPath, animated: false, scrollPosition: [])
@@ -104,7 +110,7 @@ final class ParticipantDetailViewController: UIViewController {
     /// Headers and footers change with the name, so the visible ones are refreshed by hand.
     private func updateSupplementaryViews() {
         let collectionView = detailView.collectionView
-        for section in [Section.name, .restrictions] {
+        for section in dataSource.snapshot().sectionIdentifiers {
             let indexPath = IndexPath(item: 0, section: section.rawValue)
             let header = collectionView.supplementaryView(
                 forElementKind: UICollectionView.elementKindSectionHeader,
@@ -130,7 +136,7 @@ final class ParticipantDetailViewController: UIViewController {
             switch item {
             case .name:
                 collectionView.dequeueConfiguredReusableCell(using: nameCell, for: indexPath, item: item)
-            case .restriction, .noOtherParticipants:
+            case .restriction, .noOtherParticipants, .remove:
                 collectionView.dequeueConfiguredReusableCell(using: listCell, for: indexPath, item: item)
             }
         }
@@ -186,8 +192,8 @@ final class ParticipantDetailViewController: UIViewController {
             guard let self else { return }
             var content = cell.defaultContentConfiguration()
             switch item {
-            case .restriction(let giverID):
-                content.text = renderedState.options.first { $0.giverID == giverID }?.name
+            case .restriction(let receiverID):
+                content.text = renderedState.options.first { $0.receiverID == receiverID }?.name
                 cell.configurationUpdateHandler = { cell, state in
                     guard let cell = cell as? UICollectionViewListCell else { return }
                     cell.accessories = state.isSelected ? [.checkmark()] : []
@@ -195,6 +201,12 @@ final class ParticipantDetailViewController: UIViewController {
             case .noOtherParticipants, .name:
                 content.text = String(localized: .participantDetailRestrictionsEmpty)
                 content.textProperties.color = ColorToken.textSecondary
+                cell.configurationUpdateHandler = nil
+                cell.accessories = []
+            case .remove:
+                content.text = String(localized: .participantDetailRemove)
+                content.textProperties.color = ColorToken.destructive
+                content.textProperties.alignment = .center
                 cell.configurationUpdateHandler = nil
                 cell.accessories = []
             }
@@ -213,6 +225,8 @@ final class ParticipantDetailViewController: UIViewController {
             content.text = String(localized: .participantDetailSectionName)
         case .restrictions:
             content.text = String(localized: .participantDetailSectionRestrictions(displayName(for: renderedState)))
+        case .remove:
+            content.text = nil
         }
         return content
     }
@@ -225,6 +239,8 @@ final class ParticipantDetailViewController: UIViewController {
             content.textProperties.color = ColorToken.destructive
         case .restrictions:
             content.text = String(localized: .participantDetailRestrictionsFooter)
+        case .remove:
+            content.text = nil
         }
         return content
     }
@@ -254,19 +270,26 @@ final class ParticipantDetailViewController: UIViewController {
 
 extension ParticipantDetailViewController: UICollectionViewDelegate {
     func collectionView(_ collectionView: UICollectionView, shouldSelectItemAt indexPath: IndexPath) -> Bool {
-        if case .restriction = dataSource.itemIdentifier(for: indexPath) {
-            return true
+        switch dataSource.itemIdentifier(for: indexPath) {
+        case .restriction, .remove: true
+        case .name, .noOtherParticipants, nil: false
         }
-        return false
     }
 
     func collectionView(_ collectionView: UICollectionView, didSelectItemAt indexPath: IndexPath) {
-        guard case .restriction(let giverID) = dataSource.itemIdentifier(for: indexPath) else { return }
-        viewModel.didChangeRestriction(giverID: giverID, isSelected: true)
+        switch dataSource.itemIdentifier(for: indexPath) {
+        case .restriction(let receiverID):
+            viewModel.didChangeRestriction(receiverID: receiverID, isSelected: true)
+        case .remove:
+            collectionView.deselectItem(at: indexPath, animated: true)
+            viewModel.didTapRemove()
+        case .name, .noOtherParticipants, nil:
+            break
+        }
     }
 
     func collectionView(_ collectionView: UICollectionView, didDeselectItemAt indexPath: IndexPath) {
-        guard case .restriction(let giverID) = dataSource.itemIdentifier(for: indexPath) else { return }
-        viewModel.didChangeRestriction(giverID: giverID, isSelected: false)
+        guard case .restriction(let receiverID) = dataSource.itemIdentifier(for: indexPath) else { return }
+        viewModel.didChangeRestriction(receiverID: receiverID, isSelected: false)
     }
 }

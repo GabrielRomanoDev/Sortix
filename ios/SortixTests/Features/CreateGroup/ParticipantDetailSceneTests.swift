@@ -36,7 +36,7 @@ struct ParticipantDetailSceneTests {
 
         viewModel.viewDidLoad()
 
-        #expect(viewModel.state.options.map(\.giverID) == [organizer.id, bruno.id])
+        #expect(viewModel.state.options.map(\.receiverID) == [organizer.id, bruno.id])
         #expect(viewModel.state.options.allSatisfy { !$0.isSelected })
     }
 
@@ -45,12 +45,13 @@ struct ParticipantDetailSceneTests {
         let viewModel = makeViewModel(editing: ana.id, store: store)
         viewModel.viewDidLoad()
 
-        viewModel.didChangeRestriction(giverID: bruno.id, isSelected: true)
+        viewModel.didChangeRestriction(receiverID: bruno.id, isSelected: true)
 
+        // "Ana cannot draw Bruno" is stored on Bruno, the one who would be drawn.
         let savedAna = try #require(store.draft.participants.first { $0.id == ana.id })
         let savedBruno = try #require(store.draft.participants.first { $0.id == bruno.id })
-        #expect(savedAna.forbiddenGiverIDs == [bruno.id])
-        #expect(savedBruno.forbiddenGiverIDs.isEmpty)
+        #expect(savedBruno.forbiddenGiverIDs == [ana.id])
+        #expect(savedAna.forbiddenGiverIDs.isEmpty)
         #expect(viewModel.state.options.last?.isSelected == true)
     }
 
@@ -59,11 +60,11 @@ struct ParticipantDetailSceneTests {
         let viewModel = makeViewModel(editing: ana.id, store: store)
         viewModel.viewDidLoad()
 
-        viewModel.didChangeRestriction(giverID: bruno.id, isSelected: true)
-        viewModel.didChangeRestriction(giverID: bruno.id, isSelected: false)
+        viewModel.didChangeRestriction(receiverID: bruno.id, isSelected: true)
+        viewModel.didChangeRestriction(receiverID: bruno.id, isSelected: false)
 
-        let savedAna = try #require(store.draft.participants.first { $0.id == ana.id })
-        #expect(savedAna.forbiddenGiverIDs.isEmpty)
+        let savedBruno = try #require(store.draft.participants.first { $0.id == bruno.id })
+        #expect(savedBruno.forbiddenGiverIDs.isEmpty)
     }
 
     @Test func duplicatedNameDisablesDone() {
@@ -119,5 +120,34 @@ struct ParticipantDetailSceneTests {
         viewModel.didTapDone()
 
         #expect(events == [.done])
+    }
+
+    @Test func removingAParticipantClearsTheirRestrictionsAndLeaves() throws {
+        let store = makeStore()
+        store.draft.participants[2].forbiddenGiverIDs = [ana.id]
+        let viewModel = makeViewModel(editing: ana.id, store: store)
+        var events: [ParticipantDetailViewModel.Navigation] = []
+        viewModel.onNavigation = { events.append($0) }
+        viewModel.viewDidLoad()
+
+        viewModel.didTapRemove()
+
+        #expect(store.draft.participants.map(\.id) == [organizer.id, bruno.id])
+        #expect(store.draft.participants.allSatisfy { $0.forbiddenGiverIDs.isEmpty })
+        #expect(events == [.removed])
+    }
+
+    @Test func organizerCannotBeRemoved() {
+        let store = makeStore()
+        let viewModel = makeViewModel(editing: organizer.id, store: store)
+        var events: [ParticipantDetailViewModel.Navigation] = []
+        viewModel.onNavigation = { events.append($0) }
+        viewModel.viewDidLoad()
+
+        viewModel.didTapRemove()
+
+        #expect(viewModel.state.canRemove == false)
+        #expect(store.draft.participants.count == 3)
+        #expect(events.isEmpty)
     }
 }

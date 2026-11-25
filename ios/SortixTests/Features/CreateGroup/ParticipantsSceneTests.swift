@@ -54,7 +54,37 @@ struct ParticipantsSceneTests {
 
         #expect(viewModel.state.participants.map(\.name) == ["Ana"])
         #expect(viewModel.state.newName.isEmpty)
-        #expect(viewModel.state.footer == .count(2))
+        #expect(viewModel.state.count == 2)
+        #expect(viewModel.state.addError == nil)
+    }
+
+    @Test func duplicatedContactNameIsNotAdded() {
+        let viewModel = makeViewModel()
+        var onPicked: (@MainActor (String?) -> Void)?
+        viewModel.onNavigation = { navigation in
+            if case .pickContact(let callback) = navigation {
+                onPicked = callback
+            }
+        }
+        viewModel.viewDidLoad()
+        add("Ana", to: viewModel)
+
+        viewModel.didTapAddFromContacts()
+        onPicked?("ANA")
+
+        #expect(viewModel.state.participants.count == 1)
+        #expect(viewModel.state.addError == .duplicate)
+    }
+
+    @Test func typingClearsTheAddError() {
+        let viewModel = makeViewModel()
+        viewModel.viewDidLoad()
+        add("Ana", to: viewModel)
+        add("Ana", to: viewModel)
+
+        viewModel.didChangeNewName("Anab")
+
+        #expect(viewModel.state.addError == nil)
     }
 
     @Test func duplicatedNameIsNotAdded() {
@@ -65,7 +95,7 @@ struct ParticipantsSceneTests {
         add("aná", to: viewModel)
 
         #expect(viewModel.state.participants.count == 1)
-        #expect(viewModel.state.footer == .duplicate)
+        #expect(viewModel.state.addError == .duplicate)
         #expect(viewModel.state.newName == "aná")
     }
 
@@ -76,7 +106,7 @@ struct ParticipantsSceneTests {
         add(String(repeating: "a", count: FieldLimits.participantName + 1), to: viewModel)
 
         #expect(viewModel.state.participants.isEmpty)
-        #expect(viewModel.state.footer == .nameTooLong(limit: FieldLimits.participantName))
+        #expect(viewModel.state.addError == .nameTooLong(limit: FieldLimits.participantName))
     }
 
     @Test func reviewNeedsThreeValidParticipants() {
@@ -140,7 +170,9 @@ struct ParticipantsSceneTests {
 
         viewModel.viewWillAppear()
 
-        #expect(viewModel.state.participants.last?.restrictedGiverNames == ["Ana"])
+        // Bruno cannot be drawn by Ana, so Ana's row says she cannot draw Bruno.
+        #expect(viewModel.state.participants.first?.forbiddenReceiverNames == ["Bruno"])
+        #expect(viewModel.state.participants.last?.forbiddenReceiverNames == [])
     }
 
     @Test func contactNameIsAddedEvenWhenTooLong() {
@@ -173,7 +205,7 @@ struct ParticipantsSceneTests {
         onPicked?(nil)
 
         #expect(viewModel.state.participants.isEmpty)
-        #expect(viewModel.state.footer == .contactWithoutName)
+        #expect(viewModel.state.addError == .contactWithoutName)
     }
 
     @Test func limitDisablesAdding() {
@@ -188,6 +220,6 @@ struct ParticipantsSceneTests {
 
         #expect(store.draft.participants.count == FieldLimits.maxParticipants)
         #expect(viewModel.state.isAddEnabled == false)
-        #expect(viewModel.state.footer == .limitReached)
+        #expect(viewModel.state.addError == .limitReached)
     }
 }

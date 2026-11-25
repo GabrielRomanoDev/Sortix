@@ -1,10 +1,11 @@
-/// Drives the participant detail: the name and who cannot draw this person (BR-09 to BR-15).
+/// Drives the participant detail: the name and who this person cannot draw (BR-09 to BR-15).
 ///
 /// Changes are written to the draft store as soon as they are made, so Back keeps them too.
 @MainActor
 final class ParticipantDetailViewModel {
     enum Navigation {
         case done
+        case removed
     }
 
     var onStateChange: ((ParticipantDetailState) -> Void)?
@@ -37,15 +38,24 @@ final class ParticipantDetailViewModel {
         updateState(makeState())
     }
 
-    /// Restrictions are one-way: only this participant's list changes (BR-14).
-    func didChangeRestriction(giverID: ParticipantID, isSelected: Bool) {
-        guard let index = participantIndex() else { return }
+    /// The screen asks who this person cannot draw, but restrictions are stored on who is drawn
+    /// (BR-14), so the receiver's list changes. They stay one-way.
+    func didChangeRestriction(receiverID: ParticipantID, isSelected: Bool) {
+        guard let receiverIndex = draftStore.draft.participants.firstIndex(where: { $0.id == receiverID }) else {
+            return
+        }
         if isSelected {
-            draftStore.draft.participants[index].forbiddenGiverIDs.insert(giverID)
+            draftStore.draft.participants[receiverIndex].forbiddenGiverIDs.insert(participantID)
         } else {
-            draftStore.draft.participants[index].forbiddenGiverIDs.remove(giverID)
+            draftStore.draft.participants[receiverIndex].forbiddenGiverIDs.remove(participantID)
         }
         updateState(makeState())
+    }
+
+    func didTapRemove() {
+        guard state.canRemove else { return }
+        draftStore.removeParticipant(participantID)
+        onNavigation?(.removed)
     }
 
     func didTapDone() {
@@ -79,13 +89,14 @@ final class ParticipantDetailViewModel {
         state.isOrganizer = participant.isOrganizer
         state.nameError = error == .empty ? nil : error
         state.isDoneEnabled = error == nil
+        state.canRemove = !participant.isOrganizer
         state.options = draftStore.draft.participants
             .filter { $0.id != participantID }
-            .map { giver in
+            .map { receiver in
                 RestrictionOption(
-                    giverID: giver.id,
-                    name: giver.name,
-                    isSelected: participant.forbiddenGiverIDs.contains(giver.id)
+                    receiverID: receiver.id,
+                    name: receiver.name,
+                    isSelected: receiver.forbiddenGiverIDs.contains(participantID)
                 )
             }
         return state

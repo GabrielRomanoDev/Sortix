@@ -1,21 +1,23 @@
 import UIKit
 
 final class ParticipantsViewController: UIViewController {
-    private enum Section: Int {
-        case organizer
-        case others
+    /// Each person gets a section of their own, so every card has its own background and space
+    /// around it.
+    private enum Section: Hashable {
+        case add
+        case participant(ParticipantID)
     }
 
     private enum Item: Hashable {
-        case participant(ParticipantID)
         case addField
+        case addError
         case addFromContacts
+        case participant(ParticipantID)
     }
 
-    private typealias ParticipantCellRegistration =
-        UICollectionView.CellRegistration<UICollectionViewListCell, ParticipantID>
+    private typealias CardCellRegistration = UICollectionView.CellRegistration<ParticipantCardCell, ParticipantID>
     private typealias AddFieldCellRegistration = UICollectionView.CellRegistration<TextFieldListCell, Item>
-    private typealias ContactsCellRegistration = UICollectionView.CellRegistration<UICollectionViewListCell, Item>
+    private typealias ListCellRegistration = UICollectionView.CellRegistration<UICollectionViewListCell, Item>
 
     private let viewModel: ParticipantsViewModel
     private lazy var participantsView = ParticipantsView(layout: makeLayout())
@@ -65,62 +67,100 @@ final class ParticipantsViewController: UIViewController {
     }
 
     private func makeLayout() -> UICollectionViewLayout {
-        var configuration = UICollectionLayoutListConfiguration(appearance: .insetGrouped)
-        configuration.headerMode = .supplementary
-        configuration.footerMode = .supplementary
-        configuration.trailingSwipeActionsConfigurationProvider = { [weak self] indexPath in
-            self?.swipeActions(at: indexPath)
+        UICollectionViewCompositionalLayout { [weak self] sectionIndex, environment in
+            var configuration = UICollectionLayoutListConfiguration(appearance: .insetGrouped)
+            configuration.headerMode = self?.hasHeader(sectionIndex) == true ? .supplementary : .none
+            configuration.footerMode = self?.hasFooter(sectionIndex) == true ? .supplementary : .none
+            configuration.trailingSwipeActionsConfigurationProvider = { [weak self] indexPath in
+                self?.swipeActions(at: indexPath)
+            }
+            let section = NSCollectionLayoutSection.list(using: configuration, layoutEnvironment: environment)
+            if self?.hasHeader(sectionIndex) == false {
+                section.contentInsets.top = 0
+                section.contentInsets.bottom = SpacingToken.small
+            }
+            return section
         }
-        return UICollectionViewCompositionalLayout.list(using: configuration)
+    }
+
+    /// "Adicionar participantes" and the first card carry a header.
+    private func hasHeader(_ sectionIndex: Int) -> Bool {
+        sectionIndex <= 1
+    }
+
+    /// The last card carries the count.
+    private func hasFooter(_ sectionIndex: Int) -> Bool {
+        sectionIndex > 0 && sectionIndex == dataSource.snapshot().numberOfSections - 1
     }
 
     // MARK: - Rendering
 
     private func render(_ state: ParticipantsState) {
+        let hadAddError = renderedState.addError != nil
         renderedState = state
         navigationItem.rightBarButtonItem?.isEnabled = state.isReviewEnabled
         applySnapshot(for: state)
         updateFooter()
+        if !hadAddError && state.addError != nil {
+            announceAddError()
+        }
     }
 
     private func applySnapshot(for state: ParticipantsState) {
         var snapshot = NSDiffableDataSourceSnapshot<Section, Item>()
-        snapshot.appendSections([.organizer, .others])
-        if let organizer = state.organizer {
-            snapshot.appendItems([.participant(organizer.id)], toSection: .organizer)
+        snapshot.appendSections([.add])
+        snapshot.appendItems([.addField], toSection: .add)
+        if state.addError != nil {
+            snapshot.appendItems([.addError], toSection: .add)
         }
-        snapshot.appendItems([.addField, .addFromContacts], toSection: .others)
-        snapshot.appendItems(state.participants.map { .participant($0.id) }, toSection: .others)
+        snapshot.appendItems([.addFromContacts], toSection: .add)
+
+        let people = [state.organizer].compactMap { $0 } + state.participants
+        for person in people {
+            snapshot.appendSections([.participant(person.id)])
+            snapshot.appendItems([.participant(person.id)], toSection: .participant(person.id))
+        }
         // Rows keep their identity, so their content is refreshed explicitly.
         snapshot.reconfigureItems(snapshot.itemIdentifiers)
         dataSource.apply(snapshot, animatingDifferences: view.window != nil)
     }
 
+    /// The count changes with every name, so the visible footer is refreshed by hand.
     private func updateFooter() {
-        let indexPath = IndexPath(item: 0, section: Section.others.rawValue)
+        let lastSection = dataSource.snapshot().numberOfSections - 1
+        guard hasFooter(lastSection) else { return }
         let footer = participantsView.collectionView.supplementaryView(
             forElementKind: UICollectionView.elementKindSectionFooter,
-            at: indexPath
+            at: IndexPath(item: 0, section: lastSection)
         ) as? UICollectionViewListCell
-        footer?.contentConfiguration = makeFooterConfiguration(for: .others)
+        footer?.contentConfiguration = makeFooterConfiguration()
+    }
+
+    /// VoiceOver reads the error as soon as it appears below the field.
+    private func announceAddError() {
+        guard
+            let indexPath = dataSource.indexPath(for: .addError),
+            let cell = participantsView.collectionView.cellForItem(at: indexPath)
+        else { return }
+        UIAccessibility.post(notification: .layoutChanged, argument: cell)
     }
 
     // MARK: - Data source
 
     private func makeDataSource() -> UICollectionViewDiffableDataSource<Section, Item> {
-        let participantCell = makeParticipantCellRegistration()
+        let cardCell = makeCardCellRegistration()
         let addFieldCell = makeAddFieldCellRegistration()
-        let contactsCell = makeContactsCellRegistration()
+        let listCell = makeListCellRegistration()
         let dataSource = UICollectionViewDiffableDataSource<Section, Item>(
             collectionView: participantsView.collectionView
         ) { collectionView, indexPath, item in
             switch item {
             case .participant(let id):
-                collectionView.dequeueConfiguredReusableCell(using: participantCell, for: indexPath, item: id)
+                collectionView.dequeueConfiguredReusableCell(using: cardCell, for: indexPath, item: id)
             case .addField:
                 collectionView.dequeueConfiguredReusableCell(using: addFieldCell, for: indexPath, item: item)
-            case .addFromContacts:
-                collectionView.dequeueConfiguredReusableCell(using: contactsCell, for: indexPath, item: item)
+            case .addError, .addFromContacts:
+                collectionView.dequeueConfiguredReusableCell(using: listCell, for: indexPath, item: item)
             }
         }
         setUpSupplementaryViews(for: dataSource)
@@ -131,12 +171,12 @@ final class ParticipantsViewController: UIViewController {
         let header = UICollectionView.SupplementaryRegistration<UICollectionViewListCell>(
             elementKind: UICollectionView.elementKindSectionHeader
         ) { [weak self] view, _, indexPath in
-            view.contentConfiguration = self?.makeHeaderConfiguration(for: Section(rawValue: indexPath.section))
+            view.contentConfiguration = self?.makeHeaderConfiguration(forSectionAt: indexPath.section)
         }
         let footer = UICollectionView.SupplementaryRegistration<UICollectionViewListCell>(
             elementKind: UICollectionView.elementKindSectionFooter
-        ) { [weak self] view, _, indexPath in
-            view.contentConfiguration = self?.makeFooterConfiguration(for: Section(rawValue: indexPath.section))
+        ) { [weak self] view, _, _ in
+            view.contentConfiguration = self?.makeFooterConfiguration()
         }
         dataSource.supplementaryViewProvider = { collectionView, kind, indexPath in
             let registration = kind == UICollectionView.elementKindSectionHeader ? header : footer
@@ -146,14 +186,14 @@ final class ParticipantsViewController: UIViewController {
 
     // MARK: - Cells
 
-    private func makeParticipantCellRegistration() -> ParticipantCellRegistration {
-        UICollectionView.CellRegistration { [weak self] cell, _, id in
+    private func makeCardCellRegistration() -> CardCellRegistration {
+        CardCellRegistration { [weak self] cell, _, id in
             self?.configure(cell, forParticipant: id)
         }
     }
 
     private func makeAddFieldCellRegistration() -> AddFieldCellRegistration {
-        UICollectionView.CellRegistration { [weak self] cell, _, _ in
+        AddFieldCellRegistration { [weak self] cell, _, _ in
             guard let self else { return }
             cell.configure(
                 text: renderedState.newName,
@@ -172,65 +212,73 @@ final class ParticipantsViewController: UIViewController {
         }
     }
 
-    private func makeContactsCellRegistration() -> ContactsCellRegistration {
-        UICollectionView.CellRegistration { [weak self] cell, _, _ in
+    private func makeListCellRegistration() -> ListCellRegistration {
+        ListCellRegistration { [weak self] cell, _, item in
             guard let self else { return }
-            let color = renderedState.isAddEnabled ? ColorToken.accent : ColorToken.inactive
-            var content = cell.defaultContentConfiguration()
-            content.text = String(localized: .participantsContactsButton)
-            content.textProperties.color = color
-            content.image = IconToken.addContact.image
-            content.imageProperties.tintColor = color
-            cell.contentConfiguration = content
-            cell.accessibilityTraits = renderedState.isAddEnabled ? .button : [.button, .notEnabled]
+            switch item {
+            case .addError:
+                configureAddError(cell)
+            case .addFromContacts:
+                configureContactsButton(cell)
+            case .addField, .participant:
+                break
+            }
         }
     }
 
-    private func configure(_ cell: UICollectionViewListCell, forParticipant id: ParticipantID) {
+    private func configureAddError(_ cell: UICollectionViewListCell) {
+        var content = cell.defaultContentConfiguration()
+        content.text = renderedState.addError.map(addErrorText(for:))
+        content.textProperties.font = TypographyToken.footnote
+        content.textProperties.color = ColorToken.destructive
+        content.image = IconToken.genericError.image
+        content.imageProperties.tintColor = ColorToken.destructive
+        cell.contentConfiguration = content
+        cell.accessibilityTraits = .staticText
+    }
+
+    private func configureContactsButton(_ cell: UICollectionViewListCell) {
+        let color = renderedState.isAddEnabled ? ColorToken.accent : ColorToken.inactive
+        var content = cell.defaultContentConfiguration()
+        content.text = String(localized: .participantsContactsButton)
+        content.textProperties.color = color
+        content.image = IconToken.addContact.image
+        content.imageProperties.tintColor = color
+        cell.contentConfiguration = content
+        cell.accessibilityTraits = renderedState.isAddEnabled ? .button : [.button, .notEnabled]
+    }
+
+    private func configure(_ cell: ParticipantCardCell, forParticipant id: ParticipantID) {
         let isOrganizer = renderedState.organizer?.id == id
         let row = isOrganizer ? renderedState.organizer : renderedState.participants.first { $0.id == id }
         guard let row else { return }
-
-        var content = UIListContentConfiguration.subtitleCell()
-        content.text = row.name.isEmpty ? String(localized: .participantsOrganizerPlaceholder) : row.name
-        content.textProperties.color = row.name.isEmpty ? ColorToken.textSecondary : ColorToken.textPrimary
-        content.secondaryText = errorMessage(for: row.error) ?? restrictionsSummary(for: row)
-        content.secondaryTextProperties.color = row.error == nil ? ColorToken.textSecondary : ColorToken.destructive
-        cell.contentConfiguration = content
-
-        let tag = String(localized: .participantsOrganizerTag)
-        cell.accessories = isOrganizer ? [.label(text: tag), .disclosureIndicator()] : [.disclosureIndicator()]
-        let label = [content.text, isOrganizer ? tag : nil, content.secondaryText].compactMap { $0 }
-        cell.accessibilityLabel = label.joined(separator: ", ")
+        let placeholder: LocalizedStringResource = isOrganizer
+            ? .participantsOrganizerPlaceholder
+            : .participantDetailNamePlaceholder
+        cell.configure(
+            name: row.name.isBlank ? String(localized: placeholder) : row.name,
+            isPlaceholder: row.name.isBlank,
+            tag: isOrganizer ? String(localized: .participantsOrganizerTag) : nil,
+            forbiddenReceiverNames: row.forbiddenReceiverNames,
+            errorMessage: errorMessage(for: row.error)
+        )
     }
 
-    private func makeHeaderConfiguration(for section: Section?) -> UIListContentConfiguration {
+    private func makeHeaderConfiguration(forSectionAt sectionIndex: Int) -> UIListContentConfiguration {
         var content = UIListContentConfiguration.groupedHeader()
-        switch section {
-        case .organizer: content.text = String(localized: .participantsSectionYou)
-        case .others: content.text = String(localized: .participantsSectionOthers)
-        case nil: break
-        }
+        content.text = sectionIndex == 0
+            ? String(localized: .participantsSectionAdd)
+            : String(localized: .participantsSectionOthers)
         return content
     }
 
-    private func makeFooterConfiguration(for section: Section?) -> UIListContentConfiguration {
+    private func makeFooterConfiguration() -> UIListContentConfiguration {
         var content = UIListContentConfiguration.groupedFooter()
-        guard section == .others else { return content }
-        content.text = footerText(for: renderedState.footer)
-        content.textProperties.color = renderedState.footer.isError ? ColorToken.destructive : ColorToken.textSecondary
+        content.text = String(localized: .participantsFooterCount(renderedState.count))
         return content
     }
 
     // MARK: - Texts
-
-    private func restrictionsSummary(for row: ParticipantRow) -> String {
-        if row.restrictedGiverNames.isEmpty {
-            return String(localized: .participantsRestrictionsNone)
-        }
-        let names = row.restrictedGiverNames.formatted(.list(type: .and).locale(viewModel.locale))
-        return String(localized: .participantsRestrictionsSummary(names))
-    }
 
     private func errorMessage(for error: ValidationError?) -> String? {
         switch error {
@@ -240,9 +288,8 @@ final class ParticipantsViewController: UIViewController {
         }
     }
 
-    private func footerText(for footer: ParticipantsState.Footer) -> String {
-        switch footer {
-        case .count(let count): String(localized: .participantsFooterCount(count))
+    private func addErrorText(for error: ParticipantsState.AddError) -> String {
+        switch error {
         case .duplicate: String(localized: .participantsErrorDuplicate)
         case .limitReached: String(localized: .participantsErrorLimit(FieldLimits.maxParticipants))
         case .contactWithoutName: String(localized: .participantsErrorContactWithoutName)
@@ -273,7 +320,7 @@ extension ParticipantsViewController: UICollectionViewDelegate {
         switch dataSource.itemIdentifier(for: indexPath) {
         case .participant: true
         case .addFromContacts: renderedState.isAddEnabled
-        case .addField, nil: false
+        case .addField, .addError, nil: false
         }
     }
 
@@ -282,7 +329,7 @@ extension ParticipantsViewController: UICollectionViewDelegate {
         switch dataSource.itemIdentifier(for: indexPath) {
         case .participant(let id): viewModel.didSelect(id)
         case .addFromContacts: viewModel.didTapAddFromContacts()
-        case .addField, nil: break
+        case .addField, .addError, nil: break
         }
     }
 }

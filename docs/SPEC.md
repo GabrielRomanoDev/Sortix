@@ -173,7 +173,7 @@ Size limits are centralized in `FieldLimits` (app) and `web/js/limits.js` (websi
 
 ### 3.3 Restrictions
 
-- **BR-14** Restrictions are one-way and registered on the participant who is drawn: "X cannot be drawn by Y". The reverse is not created automatically.
+- **BR-14** Restrictions are one-way and registered on the participant who is drawn: "X cannot be drawn by Y". The reverse is not created automatically. The app shows and edits them from the side of who draws ("Y não pode tirar X"), which is how people think about them; only the storage is on the drawn participant.
 - **BR-15** Any participant, including the organizer, can have restrictions.
 - **BR-16** Removing a participant removes every restriction that mentions them.
 - **BR-17** There is no explicit limit on restrictions. The practical limit is draw feasibility (BR-21).
@@ -269,7 +269,7 @@ The flow is presented modally, with its own navigation, by the `CreateGroupCoord
 
 1. The first row is "Você", prefilled with the last name used on this device, or with the hint "Toque para informar seu nome".
 2. The organizer adds participants through the "Nome do participante" field (the keyboard stays open to add several in a row) or through the "Adicionar dos contatos" button.
-3. Tapping a participant opens the detail (screen 3b): name editing and the "Quem não pode tirar <nome>?" list, with multiple selection.
+3. Tapping a participant opens the detail (screen 3b): name editing and the "Quem <nome> não pode tirar?" list, with multiple selection.
 4. Swiping a row removes the participant (except the organizer). Restrictions that mention them are removed.
 5. The footer shows the participant count. "Revisar" is enabled with 3 or more participants, all with valid, non-repeated names.
 
@@ -605,11 +605,9 @@ There is no loading: the screen does not access the network.
 **Components**
 
 - Navigation bar: standard Back button and "Revisar" on the right.
-- `UICollectionView` as an `insetGrouped` list with the sections:
-  - "Você": one cell with the organizer's name (or the hint "Toque para informar seu nome" in `secondaryLabel`), the "Você" tag and the restrictions summary as secondary text. `.disclosureIndicator()` accessory. No swipe action.
-  - "Participantes": first cell with a text field to add (`TextFieldListCell`, `returnKeyType = .done`; on confirm, it adds, clears and keeps focus); then one cell per participant with the name, the restrictions summary ("Não pode ser tirado(a) por: Ana e Bruno" or "Sem restrições") and `.disclosureIndicator()`. Swiping left shows "Remover".
-  - Section footer: the count ("8 participantes · mínimo 3, máximo 50") or the current error.
-- "Adicionar dos contatos" button (`UIButton.Configuration.tinted()` with the `person.crop.circle.badge.plus` symbol) at the top of the "Participantes" section.
+- `UICollectionView` as an `insetGrouped` list with two sections:
+  - "Adicionar participantes": a text field to add (`TextFieldListCell`, `returnKeyType = .done`; on confirm, it adds, clears and keeps focus), the error row right below the field when the last name could not be added (repeated name, typed or from a contact; limit reached; contact without a name; name too long), and the "Adicionar dos contatos" row (accent text with the `person.crop.circle.badge.plus` symbol).
+  - "Participantes": one card per person (`ParticipantCardCell`), each in its own list section so it has its own background and space around it, the organizer first with "(Você)" after the name. Each card has a fixed padding on every side and grows with its content. The first line shows the name on the left (or, for the organizer without a name, the hint "Toque para informar seu nome" in `secondaryLabel`) and the pencil on the right, vertically centered with it; below, when there are restrictions, "Não pode tirar" followed by one name per line with the `arrow.turn.down.right` symbol. A name with an error shows the message in red below it. Tapping anywhere on the card, including a restriction name, opens that person's detail (screen 3b). Swiping left shows "Remover" (not on the organizer). The last card's footer shows the count ("8 participantes · mínimo 3, máximo 50").
 - `CNContactPickerViewController` presented by the coordinator; the ViewController only forwards the chosen name to the ViewModel.
 
 **States**
@@ -617,7 +615,7 @@ There is no loading: the screen does not access the network.
 | State | What shows |
 |---|---|
 | Editing | List. "Revisar" enabled with 3 or more valid participants. |
-| Error | Message in the footer (repeated name, limit reached, contact without a name) and highlight on the row with the error. |
+| Error | Message right below the add field (repeated name, limit reached, contact without a name, name too long) and, for names already in the list, the message in red on that card. |
 | Limit reached | Add field and contacts button disabled, with the limit message. |
 
 **Localization keys**
@@ -625,15 +623,14 @@ There is no loading: the screen does not access the network.
 | Key | pt-BR text |
 |---|---|
 | `participants.title` | Participantes |
-| `participants.section.you` | Você |
-| `participants.organizer.tag` | Você |
+| `participants.organizer.tag` | (Você) |
 | `participants.organizer.placeholder` | Toque para informar seu nome |
+| `participants.section.add` | Adicionar participantes |
 | `participants.section.others` | Participantes |
 | `participants.add.placeholder` | Nome do participante |
 | `participants.add.accessibilityLabel` | Adicionar participante |
 | `participants.contacts.button` | Adicionar dos contatos |
-| `participants.restrictions.none` | Sem restrições |
-| `participants.restrictions.summary` | Não pode ser tirado(a) por: %@ |
+| `participants.restrictions.title` | Não pode tirar |
 | `participants.footer.count` | %lld participantes · mínimo 3, máximo 50 (plural) |
 | `participants.error.duplicate` | Já existe um participante com esse nome. |
 | `participants.error.limit` | O grupo já tem o máximo de %lld participantes. |
@@ -649,13 +646,13 @@ There is no loading: the screen does not access the network.
 - "Revisar" → screen 4.
 - Back → screen 2, with the participants preserved.
 
-**Accessibility:** the add field labeled "Nome do participante"; the contacts button has visible text; the "Você" tag is part of the cell label ("Carla, você, sem restrições"); the "Remover" action appears in the VoiceOver actions menu (native to swipe actions).
+**Accessibility:** the add field labeled "Nome do participante"; the contacts button has visible text; each card is read as one element with the name, the "Você" tag, any error and the restrictions ("Carla, Você, Não pode tirar, João e Karla"); the add error is announced when it appears; the "Remover" action appears in the VoiceOver actions menu (native to swipe actions).
 
 ### 5.4 Screen 3b — Participant detail and restrictions
 
 **Scene:** `ParticipantDetail`
 
-**Goal:** edit the name and define who cannot draw this participant.
+**Goal:** edit the name and define who this participant cannot draw. Selecting X here adds this participant to X's `forbiddenGiverIds` (BR-14).
 
 **Components**
 
@@ -663,8 +660,9 @@ There is no loading: the screen does not access the network.
 - Navigation bar: "OK" on the right.
 - `UICollectionView` as an `insetGrouped` list:
   - "Nome" section: `TextFieldListCell` with the name.
-  - "Quem não pode tirar <nome>?" section: one cell per participant (except this one), with multiple selection. Uses `allowsMultipleSelection = true` and the `.checkmark()` accessory tied to native selection.
+  - "Quem <nome> não pode tirar?" section: one cell per participant (except this one), with multiple selection. Uses `allowsMultipleSelection = true` and the `.checkmark()` accessory tied to native selection.
   - Footer explaining how restrictions are used.
+  - "Remover participante" destructive row, in its own section, for everyone except the organizer. Removing also removes the restrictions that mention the person (BR-16) and returns to screen 3.
 
 **States**
 
@@ -681,9 +679,10 @@ There is no loading: the screen does not access the network.
 | `participantDetail.section.name` | Nome |
 | `participantDetail.name.placeholder` | Nome |
 | `participantDetail.organizer.namePlaceholder` | Seu nome |
-| `participantDetail.section.restrictions` | Quem não pode tirar %@? |
-| `participantDetail.restrictions.footer` | Use para evitar que alguém tire quem vai comprar o presente dele. Ex.: uma criança não deve tirar a própria mãe. |
+| `participantDetail.section.restrictions` | Quem %@ não pode tirar? |
+| `participantDetail.restrictions.footer` | Marque quem essa pessoa não pode tirar no sorteio. Ex.: uma criança não deve tirar a própria mãe. |
 | `participantDetail.restrictions.empty` | Adicione outros participantes para definir restrições. |
+| `participantDetail.remove` | Remover participante |
 
 **Navigation:** "OK" or Back → screen 3. Changes are written to the `CreateGroupDraftStore` as soon as they are made.
 

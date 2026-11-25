@@ -24,7 +24,7 @@ final class ParticipantsViewModel {
     private let draftStore: CreateGroupDraftStore
     private let settingsStore: any LocalSettingsStoreProtocol
     private var newName = ""
-    private var footerError: ParticipantsState.Footer?
+    private var addError: ParticipantsState.AddError?
 
     init(draftStore: CreateGroupDraftStore, settingsStore: any LocalSettingsStoreProtocol, locale: Locale) {
         self.draftStore = draftStore
@@ -41,7 +41,7 @@ final class ParticipantsViewModel {
 
     func didChangeNewName(_ name: String) {
         newName = name
-        footerError = nil
+        addError = nil
         updateState(makeState())
     }
 
@@ -49,8 +49,8 @@ final class ParticipantsViewModel {
     func didTapAdd() {
         let name = newName.trimmed
         guard !name.isEmpty else { return }
-        if let error = addError(for: name, allowsLongName: false) {
-            footerError = error
+        if let error = validateNewName(name, allowsLongName: false) {
+            addError = error
         } else {
             append(name)
             newName = ""
@@ -70,9 +70,9 @@ final class ParticipantsViewModel {
     private func didPickContact(named name: String?) {
         let trimmedName = name?.trimmed ?? ""
         if trimmedName.isEmpty {
-            footerError = .contactWithoutName
-        } else if let error = addError(for: trimmedName, allowsLongName: true) {
-            footerError = error
+            addError = .contactWithoutName
+        } else if let error = validateNewName(trimmedName, allowsLongName: true) {
+            addError = error
         } else {
             append(trimmedName)
         }
@@ -83,11 +83,8 @@ final class ParticipantsViewModel {
 
     /// Removes a participant and every restriction that mentions them (BR-16).
     func didRemove(_ id: ParticipantID) {
-        draftStore.draft.participants.removeAll { $0.id == id && !$0.isOrganizer }
-        for index in draftStore.draft.participants.indices {
-            draftStore.draft.participants[index].forbiddenGiverIDs.remove(id)
-        }
-        footerError = nil
+        draftStore.removeParticipant(id)
+        addError = nil
         updateState(makeState())
     }
 
@@ -111,7 +108,7 @@ final class ParticipantsViewModel {
         draftStore.draft.participants.count < FieldLimits.maxParticipants
     }
 
-    private func addError(for name: String, allowsLongName: Bool) -> ParticipantsState.Footer? {
+    private func validateNewName(_ name: String, allowsLongName: Bool) -> ParticipantsState.AddError? {
         if !canAddMore {
             return .limitReached
         }
@@ -132,7 +129,7 @@ final class ParticipantsViewModel {
             isOrganizer: false
         )
         draftStore.draft.participants.append(participant)
-        footerError = nil
+        addError = nil
     }
 
     /// The organizer takes part in every group, prefilled with the last name used (BR-11).
@@ -156,20 +153,22 @@ final class ParticipantsViewModel {
         state.participants = participants.filter { !$0.isOrganizer }.map { makeRow(for: $0, among: participants) }
         state.newName = newName
         state.isAddEnabled = canAddMore
-        state.footer = footerError ?? (canAddMore ? .count(participants.count) : .limitReached)
+        state.addError = addError ?? (canAddMore ? nil : .limitReached)
+        state.count = participants.count
         state.isReviewEnabled = isReviewEnabled(participants)
         return state
     }
 
     private func makeRow(for participant: ParticipantDraft, among participants: [ParticipantDraft]) -> ParticipantRow {
         let error = GroupDraftValidator.validateParticipantName(participant, among: participants)
-        let giverNames = participants
-            .filter { participant.forbiddenGiverIDs.contains($0.id) }
+        // Restrictions are stored on who is drawn, but shown from the side of who draws.
+        let receiverNames = participants
+            .filter { $0.forbiddenGiverIDs.contains(participant.id) }
             .map(\.name)
         return ParticipantRow(
             id: participant.id,
             name: participant.name,
-            restrictedGiverNames: giverNames,
+            forbiddenReceiverNames: receiverNames,
             error: error == .empty ? nil : error
         )
     }

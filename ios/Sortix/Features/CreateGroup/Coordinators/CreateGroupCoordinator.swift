@@ -99,7 +99,7 @@ final class CreateGroupCoordinator: NSObject, Coordinator {
 
     private func handle(_ navigation: ParticipantDetailViewModel.Navigation) {
         switch navigation {
-        case .done:
+        case .done, .removed:
             router.pop(animated: true)
         }
     }

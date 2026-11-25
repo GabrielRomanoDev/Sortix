@@ -21,6 +21,8 @@ final class ParticipantsView: UIView {
         backgroundColor = ColorToken.background
         collectionView.backgroundColor = ColorToken.background
         collectionView.keyboardDismissMode = .interactive
+        // Cards grow when restrictions are added, without reloading them.
+        collectionView.selfSizingInvalidation = .enabledIncludingConstraints
     }
 
     private func setUpLayout() {

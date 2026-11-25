@@ -4,7 +4,8 @@ import UIKit
 enum IconToken: String, CaseIterable {
     case add = "plus"
     case gift = "gift"
-    case draft = "pencil"
+    case edit = "pencil"
+    case restrictionBranch = "arrow.turn.down.right"
     case participating = "person.2"
     case disclosure = "chevron.right"
     case contacts = "person.crop.circle"

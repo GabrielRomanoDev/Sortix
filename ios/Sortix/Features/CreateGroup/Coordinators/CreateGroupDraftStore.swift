@@ -16,4 +16,13 @@ final class CreateGroupDraftStore {
             || !(rules.notes ?? "").isBlank
             || !draft.participants.isEmpty
     }
+
+    /// Removes a participant and every restriction that mentions them (BR-16). The organizer
+    /// always takes part and is never removed (BR-11).
+    func removeParticipant(_ id: ParticipantID) {
+        draft.participants.removeAll { $0.id == id && !$0.isOrganizer }
+        for index in draft.participants.indices {
+            draft.participants[index].forbiddenGiverIDs.remove(id)
+        }
+    }
 }

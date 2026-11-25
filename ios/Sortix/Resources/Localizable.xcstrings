@@ -553,6 +553,18 @@
         }
       }
     },
+    "participantDetail.remove": {
+      "comment": "Destructive button that removes the participant from the group being created.",
+      "extractionState": "manual",
+      "localizations": {
+        "pt-BR": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Remover participante"
+          }
+        }
+      }
+    },
     "participantDetail.restrictions.empty": {
       "comment": "Shown in the restrictions section when the group has no other participants.",
       "extractionState": "manual",
@@ -572,7 +584,7 @@
         "pt-BR": {
           "stringUnit": {
             "state": "translated",
-            "value": "Use para evitar que alguém tire quem vai comprar o presente dele. Ex.: uma criança não deve tirar a própria mãe."
+            "value": "Marque quem essa pessoa não pode tirar no sorteio. Ex.: uma criança não deve tirar a própria mãe."
           }
         }
       }
@@ -596,7 +608,7 @@
         "pt-BR": {
           "stringUnit": {
             "state": "translated",
-            "value": "Quem não pode tirar %@?"
+            "value": "Quem %@ não pode tirar?"
           }
         }
       }
@@ -758,61 +770,49 @@
       }
     },
     "participants.organizer.tag": {
-      "comment": "Tag on the organizer's row.",
+      "comment": "Shown after the organizer's name on their card, such as Gabriel (Você).",
       "extractionState": "manual",
       "localizations": {
         "pt-BR": {
           "stringUnit": {
             "state": "translated",
-            "value": "Você"
+            "value": "(Você)"
           }
         }
       }
     },
-    "participants.restrictions.none": {
-      "comment": "Participant row subtitle when nobody is restricted from drawing them.",
+    "participants.restrictions.title": {
+      "comment": "Label above the names a participant cannot draw, on their card.",
       "extractionState": "manual",
       "localizations": {
         "pt-BR": {
           "stringUnit": {
             "state": "translated",
-            "value": "Sem restrições"
+            "value": "Não pode tirar"
           }
         }
       }
     },
-    "participants.restrictions.summary": {
-      "comment": "Participant row subtitle. %@ is the list of names, such as Ana e Bruno.",
+    "participants.section.add": {
+      "comment": "Header of the section with the field and the contacts button that add participants.",
       "extractionState": "manual",
       "localizations": {
         "pt-BR": {
           "stringUnit": {
             "state": "translated",
-            "value": "Não pode ser tirado(a) por: %@"
+            "value": "Adicionar participantes"
           }
         }
       }
     },
     "participants.section.others": {
-      "comment": "Header of the section with the other participants.",
+      "comment": "Header of the list with everyone in the group, including the organizer.",
       "extractionState": "manual",
       "localizations": {
         "pt-BR": {
           "stringUnit": {
             "state": "translated",
             "value": "Participantes"
-          }
-        }
-      }
-    },
-    "participants.section.you": {
-      "comment": "Header of the section with the organizer.",
-      "extractionState": "manual",
-      "localizations": {
-        "pt-BR": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Você"
           }
         }
       }

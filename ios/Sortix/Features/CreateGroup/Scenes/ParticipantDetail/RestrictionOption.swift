@@ -1,7 +1,7 @@
-/// Another participant who may or may not draw the person being edited.
+/// Another participant the person being edited may or may not draw.
 struct RestrictionOption: Equatable {
-    let giverID: ParticipantID
+    let receiverID: ParticipantID
     let name: String
-    /// `true` when this participant cannot draw the person being edited.
+    /// `true` when the person being edited cannot draw this participant.
     let isSelected: Bool
 }
